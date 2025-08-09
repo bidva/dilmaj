@@ -63,7 +63,7 @@ poetry run pdf-translator process input.pdf --output-dir results
 ```bash
 poetry run pdf-translator process input.pdf \
     --output-dir results \
-    --model gpt-4 \
+    --model gpt-4o-mini \
     --prompt "Translate this text to Spanish" \
     --max-retries 5 \
     --rate-limit 10
@@ -72,7 +72,7 @@ poetry run pdf-translator process input.pdf \
 ### Command Options
 
 - `--output-dir`: Directory to save results (default: ./output)
-- `--model`: GPT model to use (default: gpt-3.5-turbo)
+- `--model`: GPT model to use (default: gpt-4o-mini)
 - `--prompt`: Custom prompt for processing pages
 - `--max-retries`: Maximum retry attempts (default: 3)
 - `--rate-limit`: Requests per minute (default: 60)

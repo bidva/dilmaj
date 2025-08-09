@@ -46,7 +46,7 @@ def cli() -> None:
 @click.option(
     "--model",
     "-m",
-    default="gpt-3.5-turbo",
+    default="gpt-4o-mini",
     help="GPT model to use for processing",
 )
 @click.option(

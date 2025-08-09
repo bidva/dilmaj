@@ -8,7 +8,7 @@ from typing import Optional
 class Config:
     """Configuration class for PDF processing."""
     
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-4o-mini"
     prompt: str = "Please translate this text to English and provide a clean, formatted version."
     max_retries: int = 3
     rate_limit_rpm: int = 60

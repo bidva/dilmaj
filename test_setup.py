@@ -35,7 +35,7 @@ def main():
     # Test 2: Create a basic config
     try:
         config = Config(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             prompt="Translate this to English",
             verbose=True
         )

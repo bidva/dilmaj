@@ -2,11 +2,11 @@
 
 import hashlib
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
-import logging
 
 from .exceptions import ConfigurationError
 
@@ -140,7 +140,7 @@ def format_duration(seconds: float) -> str:
 def estimate_cost(
     input_tokens: int, 
     output_tokens: int, 
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-4o-mini"
 ) -> float:
     """Estimate the cost of API calls based on token usage.
     
@@ -152,11 +152,12 @@ def estimate_cost(
     Returns:
         Estimated cost in USD
     """
-    # Pricing as of 2024 (in USD per 1K tokens)
+    # Pricing as of 2025 (in USD per 1K tokens)
     pricing = {
-        "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
-        "gpt-4": {"input": 0.03, "output": 0.06},
-        "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+        "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
+        "gpt-4": {"input": 30.0, "output": 60.0},
+        "gpt-4-turbo": {"input": 10.0, "output": 30.0},
+        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     }
     
     if model not in pricing:
