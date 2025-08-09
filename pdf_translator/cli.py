@@ -8,15 +8,21 @@ from typing import Optional
 import click
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
-from .processor import PDFProcessor
 from .config import Config
-from .utils import validate_api_key
 from .exceptions import ConfigurationError
+from .processor import PDFProcessor
+from .utils import validate_api_key
 
 # Load environment variables
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
 
 console = Console()
 
