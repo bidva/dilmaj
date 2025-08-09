@@ -2,26 +2,25 @@
 
 import asyncio
 import json
+import logging
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable
-import logging
+from typing import Any, Callable, Dict, List, Optional
 
-from pypdf import PdfReader
-from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage
+from langchain_openai import ChatOpenAI
+from pypdf import PdfReader
+from rich.console import Console
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
 )
-from rich.console import Console
 
 from .config import Config
-from .exceptions import PDFProcessingError, GPTProcessingError
-
+from .exceptions import GPTProcessingError, PDFProcessingError
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -30,18 +29,23 @@ console = Console()
 class PDFProcessor:
     """Process PDF files by slicing pages and processing with GPT."""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, init_llm: bool = True):
         """Initialize the PDF processor.
         
         Args:
             config: Configuration object containing processing parameters
+            init_llm: Whether to initialize the LLM (set to False for dry runs)
         """
         self.config = config
-        self.llm = ChatOpenAI(
-            model=config.model,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-        )
+        self.llm = None
+        
+        if init_llm:
+            self.llm = ChatOpenAI(
+                model=config.model,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+            )
+        
         self._setup_logging()
     
     def _setup_logging(self) -> None:
@@ -147,6 +151,9 @@ class PDFProcessor:
         Raises:
             GPTProcessingError: If GPT processing fails after retries
         """
+        if self.llm is None:
+            raise GPTProcessingError("LLM not initialized. Cannot process pages in dry run mode.")
+            
         try:
             # Apply rate limiting
             await asyncio.sleep(self.config.rate_limit_delay)
