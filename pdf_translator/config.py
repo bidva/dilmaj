@@ -29,6 +29,9 @@ class Config:
     n_gpu_layers: int = 0  # Number of layers to offload to GPU (for llama-cpp)
     n_ctx: int = 2048  # Context size for llama-cpp models
     prompt_template: str = "standard"  # "standard", "persian", or "custom"
+    preprocess_text: bool = True  # Enable text preprocessing
+    remove_headers_footers: bool = True  # Remove headers/footers during preprocessing
+    chunk_paragraphs: bool = True  # Chunk text into paragraphs during preprocessing
 
     @property
     def rate_limit_delay(self) -> float:
@@ -81,6 +84,9 @@ class Config:
             "n_gpu_layers": self.n_gpu_layers,
             "n_ctx": self.n_ctx,
             "prompt_template": self.prompt_template,
+            "preprocess_text": self.preprocess_text,
+            "remove_headers_footers": self.remove_headers_footers,
+            "chunk_paragraphs": self.chunk_paragraphs,
         }
 
     def get_page_range(self, total_pages: int) -> tuple[int, int]:

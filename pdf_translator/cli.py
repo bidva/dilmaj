@@ -212,6 +212,21 @@ def cli() -> None:
     is_flag=True,
     help="Estimate API costs before processing (always $0.00 for local models)",
 )
+@click.option(
+    "--no-preprocess",
+    is_flag=True,
+    help="Disable text preprocessing (skip cleaning headers/footers, etc.)",
+)
+@click.option(
+    "--keep-headers-footers",
+    is_flag=True,
+    help="Keep headers and footers during preprocessing",
+)
+@click.option(
+    "--no-paragraph-chunking",
+    is_flag=True,
+    help="Disable paragraph chunking during preprocessing",
+)
 def process(
     pdf_path: str,
     output_dir: str,
@@ -232,6 +247,9 @@ def process(
     end_page: Optional[int],
     dry_run: bool,
     estimate_cost: bool,
+    no_preprocess: bool,
+    keep_headers_footers: bool,
+    no_paragraph_chunking: bool,
 ) -> None:
     """Process a PDF file by slicing it into pages and processing each with LLMs."""
 
@@ -279,6 +297,9 @@ def process(
         n_gpu_layers=n_gpu_layers,
         n_ctx=n_ctx,
         prompt_template=prompt_template,
+        preprocess_text=not no_preprocess,
+        remove_headers_footers=not keep_headers_footers,
+        chunk_paragraphs=not no_paragraph_chunking,
     )
 
     # Create output directory (only if not dry run)
@@ -311,6 +332,23 @@ def process(
 
     if dry_run:
         console.print("[yellow]Mode:[/yellow] Dry run (no processing will be done)")
+
+    # Display text preprocessing settings
+    if config.preprocess_text:
+        preprocessing_status = []
+        if config.remove_headers_footers:
+            preprocessing_status.append("remove headers/footers")
+        if config.chunk_paragraphs:
+            preprocessing_status.append("chunk paragraphs")
+
+        status_text = (
+            ", ".join(preprocessing_status)
+            if preprocessing_status
+            else "basic cleaning"
+        )
+        console.print(f"[green]Text preprocessing:[/green] Enabled ({status_text})")
+    else:
+        console.print("[yellow]Text preprocessing:[/yellow] Disabled")
 
     # Initialize processor
     processor = PDFProcessor(config, init_llm=not dry_run)
@@ -506,6 +544,9 @@ def estimate(
         end_page=end_page,
         model_type=model_type,
         prompt_template="standard",  # Use default for estimation
+        preprocess_text=True,  # Enable preprocessing for accurate estimates
+        remove_headers_footers=True,
+        chunk_paragraphs=True,
     )
 
     console.print("[green]📄 PDF Processing Estimation[/green]")

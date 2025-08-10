@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from langchain.schema import HumanMessage
 from langchain_community.llms import LlamaCpp
@@ -22,6 +22,7 @@ from tenacity import (
 
 from .config import Config
 from .exceptions import GPTProcessingError, PDFProcessingError
+from .utils import preprocess_text
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -38,7 +39,7 @@ class PDFProcessor:
             init_llm: Whether to initialize the LLM (set to False for dry runs)
         """
         self.config = config
-        self.llm = None
+        self.llm: Optional[Union[ChatOpenAI, LlamaCpp]] = None
 
         if init_llm:
             if config.is_local_model:
@@ -50,14 +51,17 @@ class PDFProcessor:
 
     def _init_openai_llm(self) -> None:
         """Initialize OpenAI LLM."""
-        init_kwargs = {
-            "model": self.config.model,
-            "temperature": self.config.temperature,
-        }
+        # Create ChatOpenAI instance with basic parameters
         if self.config.max_tokens is not None:
-            init_kwargs["max_tokens"] = self.config.max_tokens
-
-        self.llm = ChatOpenAI(**init_kwargs)
+            self.llm = ChatOpenAI(  # type: ignore
+                model=self.config.model,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,  # type: ignore
+            )
+        else:
+            self.llm = ChatOpenAI(  # type: ignore
+                model=self.config.model, temperature=self.config.temperature
+            )
 
     def _init_local_llm(self) -> None:
         """Initialize local LLaMA LLM."""
@@ -136,11 +140,40 @@ class PDFProcessor:
                 try:
                     page = reader.pages[page_num]
                     text = page.extract_text()
-                    if text.strip():  # Only add non-empty pages
-                        pages.append(text.strip())
-                        logger.debug(
-                            f"Extracted page {page_num + 1}: {len(text)} characters"
-                        )
+                    if text.strip():  # Only process non-empty pages
+                        # Apply text preprocessing if enabled
+                        if self.config.preprocess_text:
+                            # Pre-clean the text before further processing
+                            cleaned_text = preprocess_text(
+                                text,
+                                remove_headers_footers=(
+                                    self.config.remove_headers_footers
+                                ),
+                                chunk_paragraphs=self.config.chunk_paragraphs,
+                            )
+                        else:
+                            cleaned_text = text.strip()
+
+                        if (
+                            cleaned_text.strip()
+                        ):  # Only add if still has content after cleaning
+                            pages.append(cleaned_text.strip())
+                            if self.config.preprocess_text:
+                                logger.debug(
+                                    f"Extracted and cleaned page {page_num + 1}: "
+                                    f"{len(text)} chars -> "
+                                    f"{len(cleaned_text)} chars"
+                                )
+                            else:
+                                logger.debug(
+                                    f"Extracted page {page_num + 1}: "
+                                    f"{len(text)} characters"
+                                )
+                        else:
+                            logger.warning(
+                                f"Page {page_num + 1} was empty after preprocessing"
+                            )
+                            pages.append("")
                     else:
                         logger.warning(f"Page {page_num + 1} appears to be empty")
                         # Add empty string to maintain page numbering consistency
@@ -202,7 +235,7 @@ class PDFProcessor:
             # Process based on model type
             if self.config.is_local_model:
                 # For local models (LlamaCpp), use direct invoke in executor
-                def run_local_model():
+                def run_local_model() -> str:
                     return self.llm.invoke(input_text)  # type: ignore
 
                 response_content = await asyncio.get_event_loop().run_in_executor(
