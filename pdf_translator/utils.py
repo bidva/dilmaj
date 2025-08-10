@@ -6,22 +6,29 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from .exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
 
-def validate_api_key() -> str:
+def validate_api_key(model_type: str = "openai") -> str:
     """Validate OpenAI API key from environment variables.
+    
+    Args:
+        model_type: Type of model ("openai" or "local")
     
     Returns:
         The valid API key string
         
     Raises:
-        ConfigurationError: If API key is missing, invalid, or is a placeholder
+        ConfigurationError: If API key is missing for OpenAI models
     """
+    if model_type == "local":
+        # Local models don't need API keys
+        return ""
+    
     api_key = os.getenv("OPENAI_API_KEY")
     
     # Check if API key exists
@@ -140,7 +147,8 @@ def format_duration(seconds: float) -> str:
 def estimate_cost(
     input_tokens: int, 
     output_tokens: int, 
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-4o-mini",
+    model_type: str = "openai"
 ) -> float:
     """Estimate the cost of API calls based on token usage.
     
@@ -148,10 +156,15 @@ def estimate_cost(
         input_tokens: Number of input tokens
         output_tokens: Number of output tokens
         model: Model name
+        model_type: Type of model ("openai" or "local")
         
     Returns:
-        Estimated cost in USD
+        Estimated cost in USD (0.0 for local models)
     """
+    # Local models are free!
+    if model_type == "local":
+        return 0.0
+    
     # Pricing as of 2025 (in USD per 1K tokens)
     pricing = {
         "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
@@ -238,3 +251,56 @@ def calculate_text_tokens(text: str) -> int:
     """
     # Rough approximation: 1 token ≈ 4 characters for English text
     return len(text) // 4
+
+
+def get_suggested_local_models() -> Dict[str, str]:
+    """Get a dictionary of suggested local models and their descriptions.
+    
+    Returns:
+        Dictionary mapping model names to descriptions
+    """
+    return {
+        "llama-2-7b-chat.Q4_K_M.gguf": "LLaMA 2 7B Chat - Good balance of quality and speed",
+        "llama-2-13b-chat.Q4_K_M.gguf": "LLaMA 2 13B Chat - Higher quality, slower",
+        "mistral-7b-instruct-v0.1.Q4_K_M.gguf": "Mistral 7B Instruct - Excellent for text processing",
+        "codellama-7b-instruct.Q4_K_M.gguf": "Code Llama 7B - Optimized for code tasks",
+        "vicuna-7b-v1.5.Q4_K_M.gguf": "Vicuna 7B - Good general purpose model",
+        "openchat-3.5-7b.Q4_K_M.gguf": "OpenChat 3.5 7B - Fast and efficient",
+    }
+
+
+def detect_local_models(search_paths: Optional[List[str]] = None) -> List[str]:
+    """Detect available local model files in common locations.
+    
+    Args:
+        search_paths: Optional list of paths to search for models
+        
+    Returns:
+        List of found model file paths
+    """
+    if search_paths is None:
+        # Common locations for local models
+        search_paths = [
+            "~/models",
+            "~/.cache/huggingface/transformers", 
+            "~/.ollama/models",
+            "/usr/local/share/models",
+            "./models",
+        ]
+    
+    found_models = []
+    model_extensions = [".gguf", ".ggml", ".bin"]
+    
+    for path_str in search_paths:
+        try:
+            path = Path(path_str).expanduser().resolve()
+            if path.exists() and path.is_dir():
+                for ext in model_extensions:
+                    pattern = f"**/*{ext}"
+                    for model_file in path.glob(pattern):
+                        if model_file.is_file():
+                            found_models.append(str(model_file))
+        except Exception as e:
+            logger.debug(f"Error searching path {path_str}: {e}")
+    
+    return found_models

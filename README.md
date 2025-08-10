@@ -1,16 +1,35 @@
 # PDF Translator CLI
 
-A powerful CLI tool that slices PDF files into individual pages and processes each page using GPT models with robust error handling and retry mechanisms.
+A powerful CLI tool that slices PDF files into individual pages and processes each page using AI models (OpenAI GPT or local LLaMA models) with robust error handling and retry mechanisms.
 
 ## Features
 
 - 📄 Slice PDF files into individual pages
-- 🤖 Process each page with GPT models using LangChain
+- 🤖 Process each page with AI models:
+  - **OpenAI GPT models** (GPT-4, GPT-3.5-turbo, GPT-4o-mini)
+  - **Local LLaMA models** (FREE - no API costs!)
+- 💰 **Cost-free processing** with local models via llama-cpp-python
 - 🔄 Intelligent retry policy with exponential backoff
 - ⚡ Rate limiting and HTTP error handling
 - 📁 Organized output directory structure
 - 🎨 Beautiful CLI interface with Rich
 - ⚙️ Configurable processing options
+- 🔒 **Privacy-focused**: Local models keep your documents on your machine
+
+## Model Options
+
+### OpenAI Models (API-based)
+- `gpt-4o-mini` (recommended for cost/quality balance)
+- `gpt-3.5-turbo` (fastest, cheapest)
+- `gpt-4` (highest quality, most expensive)
+
+### Local Models (FREE!)
+- **Mistral 7B Instruct** - Excellent for text processing
+- **LLaMA 2 7B/13B Chat** - Great general purpose models
+- **OpenChat 3.5** - Fast and efficient
+- Any `.gguf` model from Hugging Face
+
+> 💡 **Local models run entirely on your hardware with zero API costs!**
 
 ## Installation
 
@@ -49,42 +68,265 @@ cp .env.example .env
 
    Then edit `.env` and replace `your_openai_api_key_here` with your actual OpenAI API key from [OpenAI API Keys](https://platform.openai.com/account/api-keys).
 
-## Usage
+## Quick Start
 
-### Basic Usage
+### Option 1: Using OpenAI Models (API-based)
 
-Process a PDF file:
-```bash
-poetry run pdf-translator process input.pdf --output-dir results
-```
-
-### Advanced Options
+1. Set up your OpenAI API key:
 
 ```bash
-poetry run pdf-translator process input.pdf \
-    --output-dir results \
-    --model gpt-4o-mini \
-    --prompt "Translate this text to Spanish" \
-    --max-retries 5 \
-    --rate-limit 10
+cp .env.example .env
+# Edit .env and add your OpenAI API key
 ```
 
-### Command Options
+2. Process a PDF:
 
-- `--output-dir`: Directory to save results (default: ./output)
-- `--model`: GPT model to use (default: gpt-4o-mini)
-- `--prompt`: Custom prompt for processing pages
-- `--max-retries`: Maximum retry attempts (default: 3)
-- `--rate-limit`: Requests per minute (default: 60)
-- `--concurrent`: Number of concurrent requests (default: 3)
+```bash
+poetry run pdf-translator process document.pdf --model gpt-4o-mini
+```
+
+### Option 2: Using Local Models (FREE!)
+
+1. Download a local model:
+
+```bash
+wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+```
+
+2. Process a PDF with the local model:
+
+```bash
+poetry run pdf-translator process document.pdf --local --model-path ./mistral-7b-instruct-v0.1.Q4_K_M.gguf
+```
+
+> 💡 **See [LLAMA_SETUP.md](LLAMA_SETUP.md) for detailed local model setup guide**
+
+## Usage Examples
+
+### Cost Estimation (Always run this first!)
+
+```bash
+# Estimate costs for OpenAI model
+poetry run pdf-translator estimate document.pdf --model gpt-4o-mini
+
+# Estimate for local model (always $0.00)
+poetry run pdf-translator estimate document.pdf --local
+```
+
+### Processing PDFs
+
+```bash
+# Basic OpenAI processing
+poetry run pdf-translator process document.pdf
+
+# With specific model and output directory
+poetry run pdf-translator process document.pdf --model gpt-3.5-turbo --output-dir ./results
+
+# Local model processing (FREE!)
+poetry run pdf-translator process document.pdf --local --model-path /path/to/model.gguf
+
+# Process only specific pages
+poetry run pdf-translator process document.pdf --start-page 1 --end-page 5
+
+# Custom prompt
+poetry run pdf-translator process document.pdf --prompt "Translate to French and summarize"
+
+# Dry run (see what would be processed without API calls)
+poetry run pdf-translator process document.pdf --dry-run
+```
+
+### Managing Local Models
+
+```bash
+# List available and suggested models
+poetry run pdf-translator models
+
+# Search custom directories for models
+poetry run pdf-translator models --search-paths ~/my-models --search-paths /shared/models
+```
+
+## Command Reference
+
+### `process` - Process PDF files
+
+**OpenAI Models:**
+```bash
+pdf-translator process FILE.pdf [OPTIONS]
+  --model TEXT              Model name (gpt-4o-mini, gpt-3.5-turbo, etc.)
+  --output-dir PATH         Output directory (default: ./output)
+  --prompt TEXT             Custom processing prompt
+  --rate-limit INTEGER      Requests per minute (default: 60)
+  --concurrent INTEGER      Concurrent requests (default: 3)
+```
+
+**Local Models:**
+```bash
+pdf-translator process FILE.pdf --local --model-path PATH [OPTIONS]
+  --local                   Use local model instead of OpenAI
+  --model-path PATH         Path to .gguf model file (required with --local)
+  --n-gpu-layers INTEGER    GPU layers to offload (default: 0)
+  --n-ctx INTEGER          Context size (default: 2048)
+```
+
+**Common Options:**
+```bash
+  --start-page INTEGER      First page to process (1-based)
+  --end-page INTEGER        Last page to process (1-based)
+  --dry-run                 Show what would be processed
+  --estimate-cost           Show cost estimate before processing
+  --verbose                 Enable verbose output
+```
+
+### `estimate` - Cost Estimation
+
+```bash
+# OpenAI model estimation
+pdf-translator estimate FILE.pdf --model gpt-4o-mini
+
+# Local model estimation (always $0.00)
+pdf-translator estimate FILE.pdf --local
+```
+
+### `models` - Manage Local Models
+
+```bash
+pdf-translator models [--search-paths PATH]
+```
+
+## Local Model Setup
+
+This section explains how to set up and use local LLaMA models with the PDF Translator.
+
+### Benefits of Local Models
+
+- 🆓 **FREE**: No API costs - run unlimited translations locally
+- 🔒 **Private**: Your documents never leave your machine
+- 🌐 **Offline**: Works without internet connection
+- ⚡ **Fast**: No network latency for requests
+
+### Quick Setup Guide
+
+#### 1. Download a Model
+
+Download a `.gguf` model file from Hugging Face. Here are some recommended models:
+
+**For Translation Tasks:**
+
+```bash
+# Mistral 7B (Good for text processing)
+wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+
+# LLaMA 2 7B Chat (Balanced quality/speed)
+wget https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf
+```
+
+#### 2. Organize Your Models
+
+```bash
+# Create models directory
+mkdir ~/models
+mv *.gguf ~/models/
+```
+
+#### 3. Use with PDF Translator
+
+```bash
+# Process PDF with local model
+poetry run pdf-translator process document.pdf --local --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+
+# With GPU acceleration (if available)
+poetry run pdf-translator process document.pdf --local --model-path ~/models/model.gguf --n-gpu-layers 20
+
+# Estimate tokens (always $0.00 for local models)
+poetry run pdf-translator estimate document.pdf --local
+```
+
+### Model Recommendations
+
+| Model | Size | Use Case | Quality | Speed |
+|-------|------|----------|---------|--------|
+| **Mistral 7B Instruct** | ~4GB | Text processing, translation | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **LLaMA 2 7B Chat** | ~4GB | General purpose | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **LLaMA 2 13B Chat** | ~7GB | Higher quality | ⭐⭐⭐⭐⭐ | ⭐⭐ |
+| **OpenChat 3.5** | ~4GB | Fast responses | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+
+### Performance Optimization
+
+#### GPU Acceleration
+
+If you have a compatible GPU, use `--n-gpu-layers` to offload computation:
+
+```bash
+# For modern GPUs (RTX 3060+, M1 Mac+)
+poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-gpu-layers 32
+
+# For older/limited VRAM
+poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-gpu-layers 10
+```
+
+#### Memory Management
+
+- **Q4_K_M**: Good balance of quality and size
+- **Q8_0**: Higher quality, larger size
+- **Q2_K**: Smallest size, lower quality
+
+#### Context Size
+
+Adjust `--n-ctx` based on your document page size:
+
+```bash
+# Small pages (default)
+poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 2048
+
+# Large pages
+poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 4096
+```
+
+### Common Model Locations
+
+The tool automatically searches these directories:
+
+- `~/models/`
+- `~/.cache/huggingface/transformers/`
+- `~/.ollama/models/`
+- `/usr/local/share/models/`
+- `./models/`
+
+### Cost Comparison
+
+| Processing Method | 100 pages | 1000 pages | Notes |
+|-------------------|-----------|------------|-------|
+| **Local Model** | $0.00 | $0.00 | Always free! |
+| GPT-4o-mini | ~$0.50 | ~$5.00 | API costs |
+| GPT-4 | ~$5.00 | ~$50.00 | High API costs |
+
+### Complete Example
+
+```bash
+# 1. Download a model
+wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+
+# 2. Create models directory
+mkdir ~/models
+mv mistral-7b-instruct-v0.1.Q4_K_M.gguf ~/models/
+
+# 3. Process your PDF
+poetry run pdf-translator process my_document.pdf --local --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+
+# 4. Check results in ./output/
+ls output/
+```
 
 ## Configuration
 
-Create a `.env` file with:
+### Environment Variables (.env file)
 
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+# For OpenAI models
+OPENAI_API_KEY=sk-your-actual-api-key-here
 ```
+
+> **Note:** Local models don't require any API keys or environment variables!
 
 ## Troubleshooting
 
@@ -103,6 +345,31 @@ To fix API key issues:
 3. Ensure your API key has sufficient credits and permissions
 4. Verify your API key starts with `sk-` (OpenAI's standard format)
 
+### Local Model Issues
+
+#### Model Loading Problems
+
+1. **File not found**: Check that the model path is correct and the file exists
+2. **Out of memory**: Try a smaller model (Q2_K instead of Q8_0) or reduce `--n-ctx`
+3. **Slow processing**: Add GPU layers with `--n-gpu-layers` if you have a compatible GPU
+4. **Model format error**: Ensure you're using a `.gguf` format model file
+
+#### Performance Issues
+
+```bash
+#### Performance Issues
+
+```bash
+# If model is running slowly, try GPU acceleration
+poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-gpu-layers 20
+
+# If running out of memory, reduce context size
+poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 1024
+
+# Try a smaller quantized model
+# Q2_K < Q4_K_M < Q8_0 (size and quality)
+```
+
 ### Poetry Command Not Found
 
 If you get `zsh: command not found: poetry`:
@@ -114,17 +381,20 @@ If you get `zsh: command not found: poetry`:
 ## Development
 
 Run tests:
+
 ```bash
 poetry run pytest
 ```
 
 Format code:
+
 ```bash
 poetry run black pdf_translator/
 poetry run isort pdf_translator/
 ```
 
 Type checking:
+
 ```bash
 poetry run mypy pdf_translator/
 ```

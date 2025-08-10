@@ -1,4 +1,4 @@
-"""PDF processing module with GPT integration."""
+"""PDF processing module with GPT and LLaMA integration."""
 
 import asyncio
 import json
@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from langchain.schema import HumanMessage
+from langchain_community.llms import LlamaCpp
 from langchain_openai import ChatOpenAI
 from pypdf import PdfReader
 from rich.console import Console
@@ -27,7 +28,7 @@ console = Console()
 
 
 class PDFProcessor:
-    """Process PDF files by slicing pages and processing with GPT."""
+    """Process PDF files by slicing pages and processing with GPT or local LLMs."""
     
     def __init__(self, config: Config, init_llm: bool = True):
         """Initialize the PDF processor.
@@ -40,13 +41,38 @@ class PDFProcessor:
         self.llm = None
         
         if init_llm:
-            self.llm = ChatOpenAI(
-                model=config.model,
-                temperature=config.temperature,
-                max_tokens=config.max_tokens,
-            )
+            if config.is_local_model:
+                self._init_local_llm()
+            else:
+                self._init_openai_llm()
         
         self._setup_logging()
+    
+    def _init_openai_llm(self) -> None:
+        """Initialize OpenAI LLM."""
+        self.llm = ChatOpenAI(
+            model=self.config.model,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+        )
+    
+    def _init_local_llm(self) -> None:
+        """Initialize local LLaMA LLM."""
+        if not self.config.model_path:
+            raise ValueError("model_path must be specified for local models")
+        
+        model_path = Path(self.config.model_path)
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        self.llm = LlamaCpp(
+            model_path=str(model_path),
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens or 512,
+            n_gpu_layers=self.config.n_gpu_layers,
+            n_ctx=self.config.n_ctx,
+            verbose=self.config.verbose,
+        )
     
     def _setup_logging(self) -> None:
         """Set up logging configuration."""
@@ -139,7 +165,7 @@ class PDFProcessor:
         page_content: str, 
         page_num: int
     ) -> Dict[str, Any]:
-        """Process a single page with GPT using retry logic.
+        """Process a single page with LLM using retry logic.
         
         Args:
             page_content: Text content of the page
@@ -149,7 +175,7 @@ class PDFProcessor:
             Dictionary containing processed result
             
         Raises:
-            GPTProcessingError: If GPT processing fails after retries
+            GPTProcessingError: If LLM processing fails after retries
         """
         if self.llm is None:
             raise GPTProcessingError("LLM not initialized. Cannot process pages in dry run mode.")
@@ -158,18 +184,32 @@ class PDFProcessor:
             # Apply rate limiting
             await asyncio.sleep(self.config.rate_limit_delay)
             
-            # Create message for LangChain
-            message = HumanMessage(content=f"{self.config.prompt}\n\nPage Content:\n{page_content}")
+            # Use the config's prompt formatting method
+            input_text = self.config.format_prompt(page_content)
             
-            # Process with GPT
-            response = await self.llm.ainvoke([message])
+            # Process based on model type
+            if self.config.is_local_model:
+                # For local models (LlamaCpp), use direct invoke in executor
+                def run_local_model():
+                    return self.llm.invoke(input_text)  # type: ignore
+                
+                response_content = await asyncio.get_event_loop().run_in_executor(
+                    None, run_local_model
+                )
+            else:
+                # For OpenAI models, use LangChain chat format
+                message = HumanMessage(content=input_text)
+                response = await self.llm.ainvoke([message])
+                response_content = response.content
             
             result = {
                 "page_number": page_num,
                 "original_content": page_content,
-                "processed_content": response.content,
+                "processed_content": response_content,
                 "timestamp": time.time(),
                 "model": self.config.model,
+                "model_type": self.config.model_type,
+                "model_path": self.config.model_path if self.config.is_local_model else None,
                 "prompt": self.config.prompt,
             }
             
