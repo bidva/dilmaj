@@ -1,6 +1,7 @@
-"""PDF processing module with GPT and LLaMA integration.
+"""Document processing module with GPT and LLaMA integration.
 
-Now processes extracted text in paragraph units (not per page).
+Now processes extracted text in paragraph units (not per page) and supports
+multiple document types (PDF, DOCX/DOC) via pluggable extractors.
 """
 
 import asyncio
@@ -24,14 +25,19 @@ from tenacity import (
 
 from .config import Config
 from .exceptions import GPTProcessingError, PDFProcessingError
-from .extractors import DocumentExtractor, ExtractionOptions, PDFExtractor
+from .extractors import (
+    DocumentExtractor,
+    ExtractionOptions,
+    PDFExtractor,
+    WordExtractor,
+)
 
 logger = logging.getLogger(__name__)
 console = Console()
 
 
 class PDFProcessor:
-    """Process PDF files by extracting paragraphs and processing with LLMs."""
+    """Process documents by extracting paragraphs and processing with LLMs."""
 
     def __init__(self, config: Config, init_llm: bool = True):
         """Initialize the PDF processor.
@@ -42,7 +48,12 @@ class PDFProcessor:
         """
         self.config = config
         self.llm: Optional[Union[ChatOpenAI, LlamaCpp]] = None
-        # Default extractor (currently PDF). In the future, support multiple extractors.
+        # Available extractors; selection is based on file suffix
+        self.extractors: list[DocumentExtractor] = [
+            PDFExtractor(),
+            WordExtractor(),
+        ]
+        # Default to PDF extractor for legacy flows
         self.extractor: DocumentExtractor = PDFExtractor()
 
         if init_llm:
@@ -89,11 +100,26 @@ class PDFProcessor:
         """Set up logging configuration."""
         level = logging.DEBUG if self.config.verbose else logging.INFO
         logging.basicConfig(
-            level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            level=level,
+            format=("%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
         )
 
+    def _select_extractor(self, path: Path) -> DocumentExtractor:
+        """Select an extractor that supports the given file.
+
+        Falls back to the first extractor (PDF) if none explicitly support,
+        which will then raise a clearer error downstream.
+        """
+        for ex in self.extractors:
+            try:
+                if ex.supports(path):
+                    return ex
+            except Exception:
+                continue
+        return self.extractor
+
     def get_pdf_page_count(self, pdf_path: Path) -> int:
-        """Get the total number of pages in a PDF.
+        """Get the total number of pages/units in a document.
 
         Args:
             pdf_path: Path to the PDF file
@@ -105,18 +131,21 @@ class PDFProcessor:
             PDFProcessingError: If PDF cannot be read
         """
         try:
-            if not self.extractor.supports(pdf_path):
+            extractor = self._select_extractor(pdf_path)
+            if not extractor.supports(pdf_path):
                 raise PDFProcessingError(
                     f"No extractor available for file type: {pdf_path.suffix}"
                 )
-            return self.extractor.get_page_count(pdf_path)
+            # Update default extractor to the selected one
+            self.extractor = extractor
+            return extractor.get_page_count(pdf_path)
         except Exception as e:
             if isinstance(e, PDFProcessingError):
                 raise
             raise PDFProcessingError(f"Failed to read PDF {pdf_path}: {str(e)}")
 
     def extract_pages(self, pdf_path: Path) -> List[str]:
-        """Extract text content as paragraphs from the specified page range of the PDF.
+        """Extract text content as paragraphs from the specified page range.
 
         Args:
             pdf_path: Path to the PDF file
@@ -137,8 +166,8 @@ class PDFProcessor:
                 raise PDFProcessingError(f"Invalid page range: {str(e)}")
 
             logger.info(
-                f"Extracting paragraphs from pages {start_page} to {end_page} of "
-                f"{total_pages} total pages"
+                f"Extracting paragraphs from pages {start_page} to {end_page} "
+                f"of {total_pages} total pages"
             )
 
             options = ExtractionOptions(
@@ -148,18 +177,21 @@ class PDFProcessor:
                 remove_headers_footers=self.config.remove_headers_footers,
                 chunk_paragraphs=self.config.chunk_paragraphs,
             )
-            pages = self.extractor.extract_pages(pdf_path, options)
+            # Ensure extractor is selected based on file type
+            extractor = self._select_extractor(pdf_path)
+            self.extractor = extractor
+            pages = extractor.extract_pages(pdf_path, options)
             if not any(page.strip() for page in pages):
                 raise PDFProcessingError(
-                    f"No paragraph content found in pages {start_page}-{end_page} "
-                    f"of PDF: {pdf_path}"
+                    "No paragraph content found in pages "
+                    f"{start_page}-{end_page} of PDF: {pdf_path}"
                 )
             return pages
 
         except Exception as e:
             if isinstance(e, PDFProcessingError):
                 raise
-            raise PDFProcessingError(f"Failed to process PDF {pdf_path}: {str(e)}")
+            raise PDFProcessingError(f"Failed to process document {pdf_path}: {str(e)}")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -184,7 +216,7 @@ class PDFProcessor:
         """
         if self.llm is None:
             raise GPTProcessingError(
-                "LLM not initialized. Cannot process paragraphs in dry run mode."
+                "LLM not initialized. Cannot process paragraphs in " "dry run mode."
             )
 
         try:
@@ -200,9 +232,8 @@ class PDFProcessor:
                 def run_local_model() -> str:
                     return self.llm.invoke(input_text)  # type: ignore
 
-                response_content = await asyncio.get_event_loop().run_in_executor(
-                    None, run_local_model
-                )
+                loop = asyncio.get_event_loop()
+                response_content = await loop.run_in_executor(None, run_local_model)
                 # Ensure response_content is a string
                 if not isinstance(response_content, str):
                     response_content = str(response_content)
@@ -250,7 +281,7 @@ class PDFProcessor:
             List of processing results
         """
         semaphore = asyncio.Semaphore(self.config.concurrent_requests)
-        results: List[Dict[str, Any]] = []
+        # Collect successful results only; errors are logged and filtered
         completed = 0
 
         # Paragraph numbering starts at 1 within the extracted range
