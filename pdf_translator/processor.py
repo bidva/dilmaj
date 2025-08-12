@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, List, Optional, Union, cast
 from langchain.schema import HumanMessage
 from langchain_community.llms import LlamaCpp
 from langchain_openai import ChatOpenAI
-from pypdf import PdfReader
 from rich.console import Console
 from tenacity import (
     before_sleep_log,
@@ -22,7 +21,7 @@ from tenacity import (
 
 from .config import Config
 from .exceptions import GPTProcessingError, PDFProcessingError
-from .utils import preprocess_text
+from .extractors import DocumentExtractor, ExtractionOptions, PDFExtractor
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -40,9 +39,11 @@ class PDFProcessor:
         """
         self.config = config
         self.llm: Optional[Union[ChatOpenAI, LlamaCpp]] = None
+        # Default extractor (currently PDF). In the future, support multiple extractors.
+        self.extractor: DocumentExtractor = PDFExtractor()
 
         if init_llm:
-            if config.is_local_model:
+            if self.config.is_local_model:
                 self._init_local_llm()
             else:
                 self._init_openai_llm()
@@ -101,9 +102,14 @@ class PDFProcessor:
             PDFProcessingError: If PDF cannot be read
         """
         try:
-            reader = PdfReader(str(pdf_path))
-            return len(reader.pages)
+            if not self.extractor.supports(pdf_path):
+                raise PDFProcessingError(
+                    f"No extractor available for file type: {pdf_path.suffix}"
+                )
+            return self.extractor.get_page_count(pdf_path)
         except Exception as e:
+            if isinstance(e, PDFProcessingError):
+                raise
             raise PDFProcessingError(f"Failed to read PDF {pdf_path}: {str(e)}")
 
     def extract_pages(self, pdf_path: Path) -> List[str]:
@@ -119,8 +125,7 @@ class PDFProcessor:
             PDFProcessingError: If PDF cannot be processed
         """
         try:
-            reader = PdfReader(str(pdf_path))
-            total_pages = len(reader.pages)
+            total_pages = self.get_pdf_page_count(pdf_path)
 
             # Get page range from config
             try:
@@ -133,58 +138,14 @@ class PDFProcessor:
                 f"{total_pages} total pages"
             )
 
-            pages = []
-
-            # Extract only the specified page range (convert to 0-based indexing)
-            for page_num in range(start_page - 1, end_page):
-                try:
-                    page = reader.pages[page_num]
-                    text = page.extract_text()
-                    if text.strip():  # Only process non-empty pages
-                        # Apply text preprocessing if enabled
-                        if self.config.preprocess_text:
-                            # Pre-clean the text before further processing
-                            cleaned_text = preprocess_text(
-                                text,
-                                remove_headers_footers=(
-                                    self.config.remove_headers_footers
-                                ),
-                                chunk_paragraphs=self.config.chunk_paragraphs,
-                            )
-                        else:
-                            cleaned_text = text.strip()
-
-                        if (
-                            cleaned_text.strip()
-                        ):  # Only add if still has content after cleaning
-                            pages.append(cleaned_text.strip())
-                            if self.config.preprocess_text:
-                                logger.debug(
-                                    f"Extracted and cleaned page {page_num + 1}: "
-                                    f"{len(text)} chars -> "
-                                    f"{len(cleaned_text)} chars"
-                                )
-                            else:
-                                logger.debug(
-                                    f"Extracted page {page_num + 1}: "
-                                    f"{len(text)} characters"
-                                )
-                        else:
-                            logger.warning(
-                                f"Page {page_num + 1} was empty after preprocessing"
-                            )
-                            pages.append("")
-                    else:
-                        logger.warning(f"Page {page_num + 1} appears to be empty")
-                        # Add empty string to maintain page numbering consistency
-                        pages.append("")
-                except Exception as e:
-                    logger.error(
-                        f"Failed to extract text from page {page_num + 1}: {e}"
-                    )
-                    # Add empty string to maintain page numbering consistency
-                    pages.append("")
-                    continue
+            options = ExtractionOptions(
+                start_page=start_page,
+                end_page=end_page,
+                preprocess_text=self.config.preprocess_text,
+                remove_headers_footers=self.config.remove_headers_footers,
+                chunk_paragraphs=self.config.chunk_paragraphs,
+            )
+            pages = self.extractor.extract_pages(pdf_path, options)
 
             if not any(page.strip() for page in pages):
                 raise PDFProcessingError(
@@ -377,10 +338,7 @@ class PDFProcessor:
 
             if pdf_path and pdf_path.exists():
                 try:
-                    from pypdf import PdfReader
-
-                    reader = PdfReader(str(pdf_path))
-                    total_pages_in_pdf = len(reader.pages)
+                    total_pages_in_pdf = self.get_pdf_page_count(pdf_path)
                     start_page, end_page = self.config.get_page_range(
                         total_pages_in_pdf
                     )
