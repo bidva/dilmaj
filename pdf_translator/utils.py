@@ -157,47 +157,13 @@ def format_duration(seconds: float) -> str:
         return f"{hours:.1f}h"
 
 
-def estimate_cost(
-    input_tokens: int,
-    output_tokens: int,
-    model: str = "gpt-4o-mini",
-    model_type: str = "openai",
-) -> float:
-    """Estimate the cost of API calls based on token usage.
+def estimate_cost(*args: Any, **kwargs: Any) -> float:  # Backward-compat shim
+    """Deprecated: cost estimation functionality has been removed.
 
-    Args:
-        input_tokens: Number of input tokens
-        output_tokens: Number of output tokens
-        model: Model name
-        model_type: Type of model ("openai" or "local")
-
-    Returns:
-        Estimated cost in USD (0.0 for local models)
+    Always returns 0.0 to avoid breaking external callers.
     """
-    # Local models are free!
-    if model_type == "local":
-        return 0.0
-
-    # Pricing as of 2025 (in USD per 1K tokens)
-    pricing = {
-        "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
-        "gpt-4": {"input": 30.0, "output": 60.0},
-        "gpt-4-turbo": {"input": 10.0, "output": 30.0},
-        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        "gpt-4.1": {"input": 2.0, "output": 8.0},
-        "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
-        "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
-        "gpt-4.5": {"input": 75.0, "output": 150.0},
-    }
-
-    if model not in pricing:
-        logger.warning(f"Unknown model for cost estimation: {model}")
-        return 0.0
-
-    input_cost = (input_tokens / 1000) * pricing[model]["input"]
-    output_cost = (output_tokens / 1000) * pricing[model]["output"]
-
-    return input_cost + output_cost
+    logger.debug("estimate_cost is deprecated and will be removed in a future version")
+    return 0.0
 
 
 def create_progress_tracker():  # type: ignore
@@ -259,16 +225,11 @@ def sanitize_filename(filename: str) -> str:
 
 
 def calculate_text_tokens(text: str) -> int:
-    """Rough estimation of token count for text.
+    """Return a rough token-like size for text (deprecated helper).
 
-    Args:
-        text: Input text
-
-    Returns:
-        Estimated token count
+    Kept for compatibility; may be removed later.
     """
-    # Rough approximation: 1 token ≈ 4 characters for English text
-    return len(text) // 4
+    return max(0, len(text) // 4)
 
 
 def preprocess_text(

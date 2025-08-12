@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 from langchain.schema import HumanMessage
 from langchain_community.llms import LlamaCpp
@@ -331,12 +331,12 @@ class PDFProcessor:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Filter out exceptions and log them
-        successful_results = []
+        successful_results: List[Dict[str, Any]] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error(f"Page {start_page + i} failed: {result}")
             else:
-                successful_results.append(result)
+                successful_results.append(cast(Dict[str, Any], result))
 
         return successful_results
 

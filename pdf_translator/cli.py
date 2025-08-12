@@ -18,70 +18,12 @@ from rich.progress import (
 from .config import Config
 from .exceptions import ConfigurationError
 from .processor import PDFProcessor
-from .utils import (
-    calculate_text_tokens,
-    detect_local_models,
-    estimate_cost,
-    get_suggested_local_models,
-    validate_api_key,
-)
+from .utils import detect_local_models, get_suggested_local_models, validate_api_key
 
 # Load environment variables
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 console = Console()
-
-
-def _estimate_processing_cost(
-    pages: list[str], prompt: str, model: str, model_type: str = "openai"
-) -> dict:
-    """Estimate the cost of processing pages with the given model.
-
-    Args:
-        pages: List of page contents
-        prompt: Processing prompt
-        model: Model name
-        model_type: Type of model ("openai" or "local")
-
-    Returns:
-        Dictionary with cost estimation details
-    """
-    total_input_tokens = 0
-    total_output_tokens_estimate = 0
-
-    # Calculate input tokens for each page
-    for page in pages:
-        if page.strip():  # Only count non-empty pages
-            # Input tokens = prompt + page content
-            page_input_tokens = calculate_text_tokens(
-                prompt + "\n\nPage Content:\n" + page
-            )
-            total_input_tokens += page_input_tokens
-
-            # Rough estimate: output is typically 0.5-1.5x input for translation tasks
-            # Using 1.0x as a reasonable estimate
-            estimated_output_tokens = int(page_input_tokens * 1.0)
-            total_output_tokens_estimate += estimated_output_tokens
-
-    # Calculate cost
-    estimated_cost = estimate_cost(
-        total_input_tokens, total_output_tokens_estimate, model, model_type
-    )
-
-    non_empty_pages = len([p for p in pages if p.strip()])
-
-    return {
-        "pages_to_process": non_empty_pages,
-        "total_input_tokens": total_input_tokens,
-        "estimated_output_tokens": total_output_tokens_estimate,
-        "estimated_total_tokens": total_input_tokens + total_output_tokens_estimate,
-        "estimated_cost_usd": estimated_cost,
-        "avg_tokens_per_page": (total_input_tokens + total_output_tokens_estimate)
-        // non_empty_pages
-        if non_empty_pages > 0
-        else 0,
-        "model_type": model_type,
-    }
 
 
 @click.group()
@@ -208,11 +150,6 @@ def cli() -> None:
     help="Show what would be processed without making API calls",
 )
 @click.option(
-    "--estimate-cost",
-    is_flag=True,
-    help="Estimate API costs before processing (always $0.00 for local models)",
-)
-@click.option(
     "--no-preprocess",
     is_flag=True,
     help="Disable text preprocessing (skip cleaning headers/footers, etc.)",
@@ -246,7 +183,6 @@ def process(
     start_page: Optional[int],
     end_page: Optional[int],
     dry_run: bool,
-    estimate_cost: bool,
     no_preprocess: bool,
     keep_headers_footers: bool,
     no_paragraph_chunking: bool,
@@ -379,65 +315,13 @@ def process(
             f"[green]Found {len(non_empty_pages)} non-empty pages to process[/green]"
         )
 
-        # Cost estimation
-        if estimate_cost or dry_run:
-            console.print("\n[blue]📊 Processing Estimation[/blue]")
-            cost_info = _estimate_processing_cost(pages, prompt, model, model_type)
-
-            console.print(
-                f"[cyan]Pages to process:[/cyan] {cost_info['pages_to_process']}"
-            )
-            console.print(
-                f"[cyan]Estimated input tokens:[/cyan] "
-                f"{cost_info['total_input_tokens']:,}"
-            )
-            console.print(
-                f"[cyan]Estimated output tokens:[/cyan] "
-                f"{cost_info['estimated_output_tokens']:,}"
-            )
-            console.print(
-                f"[cyan]Estimated total tokens:[/cyan] "
-                f"{cost_info['estimated_total_tokens']:,}"
-            )
-            console.print(
-                f"[cyan]Average tokens per page:[/cyan] "
-                f"{cost_info['avg_tokens_per_page']:,}"
-            )
-
-            if local:
-                console.print(
-                    "[green]💰 Estimated cost:[/green] $0.00 (Local model - FREE!)"
-                )
-                console.print("[green]✅ No API charges for local models![/green]")
-            else:
-                console.print(
-                    f"[cyan]Estimated cost:[/cyan] "
-                    f"${cost_info['estimated_cost_usd']:.4f} USD"
-                )
-
-                if cost_info["estimated_cost_usd"] > 1.0:
-                    console.print(
-                        f"[yellow]⚠️  High cost estimate "
-                        f"(${cost_info['estimated_cost_usd']:.2f}). "
-                        f"Consider using a local model for free processing![/yellow]"
-                    )
-
-            if not dry_run and estimate_cost and not local:
-                # Ask for confirmation if cost is significant for OpenAI models
-                if cost_info["estimated_cost_usd"] > 0.50:
-                    proceed = click.confirm(
-                        f"\nEstimated cost is ${cost_info['estimated_cost_usd']:.4f}. "
-                        f"Do you want to proceed?"
-                    )
-                    if not proceed:
-                        console.print("[yellow]Operation cancelled by user.[/yellow]")
-                        return
-
-        # Exit if dry run
+        # Dry run: show basic info and exit without processing
         if dry_run:
+            console.print("\n[blue]🔍 Dry run summary[/blue]")
             console.print(
-                "\n[yellow]🔍 Dry run complete - no API calls were made[/yellow]"
+                f"[cyan]Non-empty pages to process:[/cyan] {len(non_empty_pages)}"
             )
+            console.print("[yellow]Dry run complete - no API calls were made[/yellow]")
             return
 
         # Process the PDF
@@ -449,7 +333,6 @@ def process(
             TimeElapsedColumn(),
             console=console,
         ) as progress:
-            # Skip extraction since we already did it for cost estimation
             progress.add_task(
                 "Pages already extracted", total=len(pages), completed=len(pages)
             )
@@ -484,200 +367,6 @@ def process(
         console.print(f"[red]Error processing PDF: {str(e)}[/red]")
         if verbose:
             console.print_exception()
-        sys.exit(1)
-
-
-@cli.command()
-@click.argument("pdf_path", type=click.Path(exists=True))
-@click.option(
-    "--model",
-    "-m",
-    default="gpt-4o-mini",
-    help="Model to use for cost estimation",
-)
-@click.option(
-    "--local",
-    is_flag=True,
-    help="Estimate for local model (always $0.00)",
-)
-@click.option(
-    "--prompt",
-    "-p",
-    default=(
-        "Please translate this text to English and provide a "
-        "clean, formatted version."
-    ),
-    help="Custom prompt for processing pages",
-)
-@click.option(
-    "--start-page",
-    "-s",
-    type=int,
-    help="First page to analyze (1-based). Default: 1",
-)
-@click.option(
-    "--end-page",
-    "-e",
-    type=int,
-    help="Last page to analyze (1-based). Default: last page",
-)
-def estimate(
-    pdf_path: str,
-    model: str,
-    local: bool,
-    prompt: str,
-    start_page: Optional[int],
-    end_page: Optional[int],
-) -> None:
-    """Estimate the cost of processing a PDF without making any API calls."""
-
-    # Convert string path to Path object
-    pdf_path_obj = Path(pdf_path)
-
-    model_type = "local" if local else "openai"
-
-    # Create configuration for analysis
-    config = Config(
-        model=model,
-        prompt=prompt,
-        start_page=start_page,
-        end_page=end_page,
-        model_type=model_type,
-        prompt_template="standard",  # Use default for estimation
-        preprocess_text=True,  # Enable preprocessing for accurate estimates
-        remove_headers_footers=True,
-        chunk_paragraphs=True,
-    )
-
-    console.print("[green]📄 PDF Processing Estimation[/green]")
-    console.print(f"[green]File:[/green] {pdf_path_obj}")
-
-    if local:
-        console.print("[green]Model type:[/green] Local (FREE)")
-    else:
-        console.print("[green]Model type:[/green] OpenAI API")
-        console.print(f"[green]Model:[/green] {model}")
-
-    if start_page is not None or end_page is not None:
-        page_range_text = f"Pages: {start_page or 1}-{end_page or 'last'}"
-        console.print(f"[green]Page range:[/green] {page_range_text}")
-    else:
-        console.print("[green]Page range:[/green] All pages")
-
-    try:
-        # Initialize processor (no API key needed for estimation)
-        processor = PDFProcessor(config, init_llm=False)
-
-        # Get page info
-        total_pages = processor.get_pdf_page_count(pdf_path_obj)
-        actual_start, actual_end = config.get_page_range(total_pages)
-        page_count_to_process = actual_end - actual_start + 1
-
-        console.print(f"[green]PDF has {total_pages} pages total[/green]")
-        console.print(
-            f"[green]Will analyze pages {actual_start}-{actual_end} "
-            f"({page_count_to_process} pages)[/green]"
-        )
-
-        # Extract pages
-        console.print("\n[blue]📖 Extracting pages for analysis...[/blue]")
-        pages = processor.extract_pages(pdf_path_obj)
-        non_empty_pages = [p for p in pages if p.strip()]
-
-        if not non_empty_pages:
-            console.print(
-                "[red]No text content found in the specified page range.[/red]"
-            )
-            return
-
-        console.print(f"[green]Found {len(non_empty_pages)} non-empty pages[/green]")
-
-        # Cost estimation
-        console.print("\n[blue]💰 Processing Analysis[/blue]")
-        cost_info = _estimate_processing_cost(pages, prompt, model, model_type)
-
-        console.print(
-            f"[cyan]Pages with content:[/cyan] {cost_info['pages_to_process']}"
-        )
-        console.print(
-            f"[cyan]Estimated input tokens:[/cyan] "
-            f"{cost_info['total_input_tokens']:,}"
-        )
-        console.print(
-            f"[cyan]Estimated output tokens:[/cyan] "
-            f"{cost_info['estimated_output_tokens']:,}"
-        )
-        console.print(
-            f"[cyan]Total estimated tokens:[/cyan] "
-            f"{cost_info['estimated_total_tokens']:,}"
-        )
-        console.print(
-            f"[cyan]Average tokens per page:[/cyan] "
-            f"{cost_info['avg_tokens_per_page']:,}"
-        )
-
-        if local:
-            console.print(
-                "[green]💰 Estimated cost:[/green] $0.00 (Local model - FREE!)"
-            )
-            console.print(
-                "[green]✅ Local models run on your hardware at no API cost![/green]"
-            )
-            console.print("[yellow]💡 Consider local models for:[/yellow]")
-            console.print("   • Cost-free processing")
-            console.print("   • Privacy (no data sent to external services)")
-            console.print("   • Offline processing")
-        else:
-            console.print(
-                f"[cyan]Estimated cost:[/cyan] "
-                f"${cost_info['estimated_cost_usd']:.4f} USD"
-            )
-
-            # Cost warnings and recommendations
-            if cost_info["estimated_cost_usd"] > 5.0:
-                console.print(
-                    f"[red]⚠️  Very high cost estimate "
-                    f"(${cost_info['estimated_cost_usd']:.2f})[/red]"
-                )
-                console.print("[yellow]💡 Consider:[/yellow]")
-                console.print("   • Using a local model (FREE)")
-                console.print("   • Processing fewer pages at a time")
-                console.print("   • Using a cheaper model (e.g., gpt-3.5-turbo)")
-                console.print("   • Splitting into smaller batches")
-            elif cost_info["estimated_cost_usd"] > 1.0:
-                console.print(
-                    f"[yellow]⚠️  High cost estimate "
-                    f"(${cost_info['estimated_cost_usd']:.2f})[/yellow]"
-                )
-                console.print(
-                    "[yellow]💡 Consider using a local model for free processing "
-                    "or gpt-3.5-turbo for lower costs[/yellow]"
-                )
-            elif cost_info["estimated_cost_usd"] < 0.01:
-                console.print("[green]✅ Very low cost estimate - good to go![/green]")
-            else:
-                console.print("[green]✅ Reasonable cost estimate[/green]")
-
-            # Token efficiency info
-            if cost_info["avg_tokens_per_page"] > 3000:
-                console.print(
-                    "[yellow]💡 Pages have a lot of text. "
-                    "Consider shorter prompts to reduce costs.[/yellow]"
-                )
-
-        console.print("\n[blue]To proceed with processing, run:[/blue]")
-        if local:
-            console.print(
-                f"[dim]pdf-translator process {pdf_path_obj} --local "
-                f"--model-path /path/to/model.gguf[/dim]"
-            )
-        else:
-            console.print(
-                f"[dim]pdf-translator process {pdf_path_obj} --model {model}[/dim]"
-            )
-
-    except Exception as e:
-        console.print(f"[red]Error analyzing PDF: {str(e)}[/red]")
         sys.exit(1)
 
 

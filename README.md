@@ -103,14 +103,11 @@ poetry run pdf-translator process document.pdf --local --model-path ./mistral-7b
 
 ## Usage Examples
 
-### Cost Estimation (Always run this first!)
+### Dry Run Preview
 
 ```bash
-# Estimate costs for OpenAI model
-poetry run pdf-translator estimate document.pdf --model gpt-4o-mini
-
-# Estimate for local model (always $0.00)
-poetry run pdf-translator estimate document.pdf --local
+# See what would be processed without making any API calls
+poetry run pdf-translator process document.pdf --dry-run
 ```
 
 ### Processing PDFs
@@ -173,19 +170,9 @@ pdf-translator process FILE.pdf --local --model-path PATH [OPTIONS]
   --start-page INTEGER      First page to process (1-based)
   --end-page INTEGER        Last page to process (1-based)
   --dry-run                 Show what would be processed
-  --estimate-cost           Show cost estimate before processing
   --verbose                 Enable verbose output
 ```
 
-### `estimate` - Cost Estimation
-
-```bash
-# OpenAI model estimation
-pdf-translator estimate FILE.pdf --model gpt-4o-mini
-
-# Local model estimation (always $0.00)
-pdf-translator estimate FILE.pdf --local
-```
 
 ### `models` - Manage Local Models
 
@@ -237,8 +224,8 @@ poetry run pdf-translator process document.pdf --local --model-path ~/models/mis
 # With GPU acceleration (if available)
 poetry run pdf-translator process document.pdf --local --model-path ~/models/model.gguf --n-gpu-layers 20
 
-# Estimate tokens (always $0.00 for local models)
-poetry run pdf-translator estimate document.pdf --local
+# Preview pages and settings without processing (no API calls)
+poetry run pdf-translator process document.pdf --dry-run
 ```
 
 ### Model Recommendations
