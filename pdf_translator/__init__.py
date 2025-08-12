@@ -3,3 +3,14 @@
 __version__ = "0.1.0"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
+
+# Re-export provider interfaces for convenience
+from .providers import LLMProvider, LocalLlamaProvider, OpenAIProvider, ProviderFactory
+
+__all__ = [
+    "__version__",
+    "LLMProvider",
+    "LocalLlamaProvider",
+    "OpenAIProvider",
+    "ProviderFactory",
+]

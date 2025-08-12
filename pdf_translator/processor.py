@@ -1,7 +1,9 @@
-"""Document processing module with GPT and LLaMA integration.
+"""Document processing module with pluggable LLM providers.
 
 Now processes extracted text in paragraph units (not per page) and supports
 multiple document types (PDF, DOCX/DOC) via pluggable extractors.
+Backends for text generation are abstracted behind a provider interface,
+enabling OpenAI, local llama-cpp, and future providers (e.g., Bedrock).
 """
 
 import asyncio
@@ -9,11 +11,8 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
-from langchain.schema import HumanMessage
-from langchain_community.llms import LlamaCpp
-from langchain_openai import ChatOpenAI
 from rich.console import Console
 from tenacity import (
     before_sleep_log,
@@ -31,6 +30,7 @@ from .extractors import (
     PDFExtractor,
     WordExtractor,
 )
+from .providers import LLMProvider, ProviderFactory
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -47,9 +47,10 @@ class PDFProcessor:
             init_llm: Whether to initialize the LLM (set to False for dry runs)
         """
         self.config = config
-        self.llm: Optional[Union[ChatOpenAI, LlamaCpp]] = None
+        # LLM provider implementing a unified interface across backends
+        self.provider: Optional[LLMProvider] = None
         # Available extractors; selection is based on file suffix
-        self.extractors: list[DocumentExtractor] = [
+        self.extractors: List[DocumentExtractor] = [
             PDFExtractor(),
             WordExtractor(),
         ]
@@ -57,44 +58,14 @@ class PDFProcessor:
         self.extractor: DocumentExtractor = PDFExtractor()
 
         if init_llm:
-            if self.config.is_local_model:
-                self._init_local_llm()
-            else:
-                self._init_openai_llm()
+            self._init_provider()
 
         self._setup_logging()
 
-    def _init_openai_llm(self) -> None:
-        """Initialize OpenAI LLM."""
-        # Create ChatOpenAI instance with basic parameters
-        if self.config.max_tokens is not None:
-            self.llm = ChatOpenAI(  # type: ignore
-                model=self.config.model,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,  # type: ignore
-            )
-        else:
-            self.llm = ChatOpenAI(  # type: ignore
-                model=self.config.model, temperature=self.config.temperature
-            )
-
-    def _init_local_llm(self) -> None:
-        """Initialize local LLaMA LLM."""
-        if not self.config.model_path:
-            raise ValueError("model_path must be specified for local models")
-
-        model_path = Path(self.config.model_path)
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-
-        self.llm = LlamaCpp(
-            model_path=str(model_path),
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens or 512,
-            n_gpu_layers=self.config.n_gpu_layers,
-            n_ctx=self.config.n_ctx,
-            verbose=self.config.verbose,
-        )
+    def _init_provider(self) -> None:
+        """Initialize the LLM provider based on configuration."""
+        # ProviderFactory validates local model path existence internally
+        self.provider = ProviderFactory.from_config(self.config)
 
     def _setup_logging(self) -> None:
         """Set up logging configuration."""
@@ -214,7 +185,7 @@ class PDFProcessor:
         Raises:
             GPTProcessingError: If LLM processing fails after retries
         """
-        if self.llm is None:
+        if self.provider is None:
             raise GPTProcessingError(
                 "LLM not initialized. Cannot process paragraphs in " "dry run mode."
             )
@@ -226,22 +197,10 @@ class PDFProcessor:
             # Use the config's prompt formatting method
             input_text = self.config.format_prompt(page_content)
 
-            # Process based on model type
-            if self.config.is_local_model:
-                # For local models (LlamaCpp), use direct invoke in executor
-                def run_local_model() -> str:
-                    return self.llm.invoke(input_text)  # type: ignore
-
-                loop = asyncio.get_event_loop()
-                response_content = await loop.run_in_executor(None, run_local_model)
-                # Ensure response_content is a string
-                if not isinstance(response_content, str):
-                    response_content = str(response_content)
-            else:
-                # For OpenAI models, use LangChain chat format
-                message = HumanMessage(content=input_text)
-                response = await self.llm.ainvoke([message])
-                response_content = str(response.content) if response.content else ""
+            # Delegate generation to the provider (uniform API)
+            provider = self.provider
+            assert provider is not None
+            response_content = await provider.ainvoke(input_text)
 
             result: Dict[str, Any] = {
                 "paragraph_number": page_num,
