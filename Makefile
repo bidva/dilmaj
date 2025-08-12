@@ -9,7 +9,7 @@ CONFIG := .pre-commit-config.yaml
 .PHONY: help pre-commit-help list-hooks pre-commit-install pre-commit-update pre-commit-all \
 	pre-commit-trailing-whitespace pre-commit-end-of-file-fixer pre-commit-check-yaml \
 	pre-commit-check-added-large-files pre-commit-check-merge-conflict pre-commit-debug-statements \
-	pre-commit-black pre-commit-isort pre-commit-flake8 pre-commit-mypy
+	pre-commit-black pre-commit-isort pre-commit-mypy
 
 help: pre-commit-help
 
@@ -24,7 +24,6 @@ pre-commit-help:
 	@echo "Examples:"
 	@echo "  make pre-commit-black"
 	@echo "  make pre-commit-isort"
-	@echo "  make pre-commit-flake8"
 	@echo "  make pre-commit-mypy"
 	@echo "  make pre-commit-trailing-whitespace"
 
@@ -57,5 +56,4 @@ pre-commit-check-merge-conflict: ; $(PRE_COMMIT) run check-merge-conflict --all-
 pre-commit-debug-statements: ; $(PRE_COMMIT) run debug-statements --all-files --show-diff-on-failure
 pre-commit-black: ; $(PRE_COMMIT) run black --all-files --show-diff-on-failure
 pre-commit-isort: ; $(PRE_COMMIT) run isort --all-files --show-diff-on-failure
-pre-commit-flake8: ; $(PRE_COMMIT) run flake8 --all-files --show-diff-on-failure
 pre-commit-mypy: ; $(PRE_COMMIT) run mypy --all-files --show-diff-on-failure

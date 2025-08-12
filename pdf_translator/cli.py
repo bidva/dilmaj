@@ -262,7 +262,12 @@ def process(
 
     if start_page is not None or end_page is not None:
         page_range_text = f"Pages: {start_page or 1}-{end_page or 'last'}"
-        console.print(f"[green]Page range:[/green] {page_range_text}")
+        console.print(
+            (
+                "[green]Page range (source pages to extract paragraphs from):[/green] "
+                f"{page_range_text}"
+            )
+        )
     else:
         console.print("[green]Page range:[/green] All pages")
 
@@ -303,23 +308,23 @@ def process(
 
         console.print(f"[green]PDF has {total_pages} pages total[/green]")
         console.print(
-            f"[green]Will process pages {actual_start}-{actual_end} "
-            f"({page_count_to_process} pages)[/green]"
+            f"[green]Will extract paragraphs from pages {actual_start}-{actual_end} "
+            f"({page_count_to_process} pages in range)[/green]"
         )
 
-        # Extract pages for analysis
-        console.print("[blue]Extracting pages for analysis...[/blue]")
+        # Extract paragraphs for analysis
+        console.print("[blue]Extracting paragraphs for analysis...[/blue]")
         pages = processor.extract_pages(pdf_path_obj)
         non_empty_pages = [p for p in pages if p.strip()]
         console.print(
-            f"[green]Found {len(non_empty_pages)} non-empty pages to process[/green]"
+            f"[green]Found {len(non_empty_pages)} non-empty paragraphs to process[/green]"
         )
 
         # Dry run: show basic info and exit without processing
         if dry_run:
             console.print("\n[blue]🔍 Dry run summary[/blue]")
             console.print(
-                f"[cyan]Non-empty pages to process:[/cyan] {len(non_empty_pages)}"
+                f"[cyan]Non-empty paragraphs to process:[/cyan] {len(non_empty_pages)}"
             )
             console.print("[yellow]Dry run complete - no API calls were made[/yellow]")
             return
@@ -334,18 +339,18 @@ def process(
             console=console,
         ) as progress:
             progress.add_task(
-                "Pages already extracted", total=len(pages), completed=len(pages)
+                "Paragraphs already extracted", total=len(pages), completed=len(pages)
             )
 
             # Display extracted page info
             console.print(
-                f"[green]Processing {len(non_empty_pages)} non-empty pages "
+                f"[green]Processing {len(non_empty_pages)} non-empty paragraphs "
                 f"from the extracted range[/green]"
             )
 
             # Process pages
             process_task = progress.add_task(
-                "Processing pages with GPT...", total=len(non_empty_pages)
+                "Processing paragraphs with GPT...", total=len(non_empty_pages)
             )
 
             results = processor.process_pages_async(
@@ -357,7 +362,9 @@ def process(
                 ),
             )
 
-            console.print(f"[green]Successfully processed {len(results)} pages[/green]")
+            console.print(
+                f"[green]Successfully processed {len(results)} paragraphs[/green]"
+            )
             console.print(f"[green]Results saved to:[/green] {output_dir_obj}")
 
     except KeyboardInterrupt:

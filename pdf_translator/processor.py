@@ -1,4 +1,7 @@
-"""PDF processing module with GPT and LLaMA integration."""
+"""PDF processing module with GPT and LLaMA integration.
+
+Now processes extracted text in paragraph units (not per page).
+"""
 
 import asyncio
 import json
@@ -28,7 +31,7 @@ console = Console()
 
 
 class PDFProcessor:
-    """Process PDF files by slicing pages and processing with GPT or local LLMs."""
+    """Process PDF files by extracting paragraphs and processing with LLMs."""
 
     def __init__(self, config: Config, init_llm: bool = True):
         """Initialize the PDF processor.
@@ -113,13 +116,13 @@ class PDFProcessor:
             raise PDFProcessingError(f"Failed to read PDF {pdf_path}: {str(e)}")
 
     def extract_pages(self, pdf_path: Path) -> List[str]:
-        """Extract text content from specified pages of the PDF.
+        """Extract text content as paragraphs from the specified page range of the PDF.
 
         Args:
             pdf_path: Path to the PDF file
 
         Returns:
-            List of text content for each page in the specified range
+            List of paragraph strings derived from the specified page range
 
         Raises:
             PDFProcessingError: If PDF cannot be processed
@@ -134,7 +137,7 @@ class PDFProcessor:
                 raise PDFProcessingError(f"Invalid page range: {str(e)}")
 
             logger.info(
-                f"Processing pages {start_page} to {end_page} of "
+                f"Extracting paragraphs from pages {start_page} to {end_page} of "
                 f"{total_pages} total pages"
             )
 
@@ -146,13 +149,11 @@ class PDFProcessor:
                 chunk_paragraphs=self.config.chunk_paragraphs,
             )
             pages = self.extractor.extract_pages(pdf_path, options)
-
             if not any(page.strip() for page in pages):
                 raise PDFProcessingError(
-                    f"No text content found in pages {start_page}-{end_page} "
+                    f"No paragraph content found in pages {start_page}-{end_page} "
                     f"of PDF: {pdf_path}"
                 )
-
             return pages
 
         except Exception as e:
@@ -169,11 +170,11 @@ class PDFProcessor:
     async def _process_single_page(
         self, page_content: str, page_num: int
     ) -> Dict[str, Any]:
-        """Process a single page with LLM using retry logic.
+        """Process a single paragraph with LLM using retry logic.
 
         Args:
-            page_content: Text content of the page
-            page_num: Page number for reference
+            page_content: Text content of the paragraph
+            page_num: Paragraph number for reference
 
         Returns:
             Dictionary containing processed result
@@ -183,7 +184,7 @@ class PDFProcessor:
         """
         if self.llm is None:
             raise GPTProcessingError(
-                "LLM not initialized. Cannot process pages in dry run mode."
+                "LLM not initialized. Cannot process paragraphs in dry run mode."
             )
 
         try:
@@ -212,7 +213,7 @@ class PDFProcessor:
                 response_content = str(response.content) if response.content else ""
 
             result: Dict[str, Any] = {
-                "page_number": page_num,
+                "paragraph_number": page_num,
                 "original_content": page_content,
                 "processed_content": response_content,
                 "timestamp": time.time(),
@@ -224,11 +225,11 @@ class PDFProcessor:
                 "prompt": self.config.prompt,
             }
 
-            logger.info(f"Successfully processed page {page_num}")
+            logger.info(f"Successfully processed paragraph {page_num}")
             return result
 
         except Exception as e:
-            error_msg = f"Failed to process page {page_num}: {str(e)}"
+            error_msg = f"Failed to process paragraph {page_num}: {str(e)}"
             logger.error(error_msg)
             raise GPTProcessingError(error_msg)
 
@@ -238,10 +239,10 @@ class PDFProcessor:
         output_dir: Path,
         progress_callback: Optional[Callable[[int], None]] = None,
     ) -> List[Dict[str, Any]]:
-        """Process multiple pages concurrently with rate limiting.
+        """Process multiple paragraphs concurrently with rate limiting.
 
         Args:
-            pages: List of page contents
+            pages: List of paragraph contents
             output_dir: Directory to save results
             progress_callback: Optional callback for progress updates
 
@@ -249,53 +250,55 @@ class PDFProcessor:
             List of processing results
         """
         semaphore = asyncio.Semaphore(self.config.concurrent_requests)
-        results = []
+        results: List[Dict[str, Any]] = []
         completed = 0
 
-        # Get the actual starting page number for correct file naming
-        start_page = self.config.start_page if self.config.start_page is not None else 1
+        # Paragraph numbering starts at 1 within the extracted range
+        start_paragraph = 1
 
         async def process_with_semaphore(
             page_content: str, page_index: int
         ) -> Dict[str, Any]:
+            nonlocal completed
             async with semaphore:
-                actual_page_num = start_page + page_index
+                actual_paragraph_num = start_paragraph + page_index
                 result: Dict[str, Any] = await self._process_single_page(
-                    page_content, actual_page_num
+                    page_content, actual_paragraph_num
                 )
 
                 # Save individual result
-                result_file = output_dir / f"page_{actual_page_num:03d}.json"
+                result_file = output_dir / f"paragraph_{actual_paragraph_num:03d}.json"
                 with open(result_file, "w", encoding="utf-8") as f:
                     json.dump(result, f, indent=2, ensure_ascii=False)
 
                 # Save processed content as text file
-                text_file = output_dir / f"page_{actual_page_num:03d}_processed.txt"
+                text_file = (
+                    output_dir / f"paragraph_{actual_paragraph_num:03d}_processed.txt"
+                )
                 with open(text_file, "w", encoding="utf-8") as f:
                     f.write(result["processed_content"])
 
-                nonlocal completed
                 completed += 1
                 if progress_callback:
                     progress_callback(completed)
 
                 return result
 
-        # Create tasks for all pages
+        # Create tasks for all paragraphs
         tasks = [
             process_with_semaphore(page_content, page_index)
             for page_index, page_content in enumerate(pages)
-            if page_content.strip()  # Skip empty pages
+            if page_content.strip()  # Skip empty paragraphs
         ]
 
-        # Process all pages
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Process all paragraphs
+        results_raw = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Filter out exceptions and log them
         successful_results: List[Dict[str, Any]] = []
-        for i, result in enumerate(results):
+        for i, result in enumerate(results_raw):
             if isinstance(result, Exception):
-                logger.error(f"Page {start_page + i} failed: {result}")
+                logger.error(f"Paragraph {start_paragraph + i} failed: {result}")
             else:
                 successful_results.append(cast(Dict[str, Any], result))
 
@@ -308,10 +311,10 @@ class PDFProcessor:
         pdf_path: Optional[Path] = None,
         progress_callback: Optional[Callable[[int], None]] = None,
     ) -> List[Dict[str, Any]]:
-        """Synchronous wrapper for async page processing.
+        """Synchronous wrapper for async paragraph processing.
 
         Args:
-            pages: List of page contents
+            pages: List of paragraph contents
             output_dir: Directory to save results
             pdf_path: Optional path to PDF file for metadata
             progress_callback: Optional callback for progress updates
@@ -348,9 +351,9 @@ class PDFProcessor:
             summary = {
                 "total_pages_in_pdf": total_pages_in_pdf,
                 "page_range_requested": f"{start_page}-{end_page}",
-                "pages_processed": len(pages),
-                "successful_pages": len(results),
-                "failed_pages": len(pages) - len(results),
+                "paragraphs_processed": len(pages),
+                "successful_paragraphs": len(results),
+                "failed_paragraphs": len(pages) - len(results),
                 "config": self.config.to_dict(),
                 "results": results,
                 "timestamp": time.time(),
@@ -363,8 +366,8 @@ class PDFProcessor:
             combined_file = output_dir / "combined_processed.txt"
             with open(combined_file, "w", encoding="utf-8") as f:
                 f.write("# Combined Processed Results\n\n")
-                for result in sorted(results, key=lambda x: x["page_number"]):
-                    f.write(f"## Page {result['page_number']}\n\n")
+                for result in sorted(results, key=lambda x: x["paragraph_number"]):
+                    f.write(f"## Paragraph {result['paragraph_number']}\n\n")
                     f.write(result["processed_content"])
                     f.write("\n\n" + "=" * 50 + "\n\n")
 
