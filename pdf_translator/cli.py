@@ -46,12 +46,14 @@ def cli() -> None:
     "--model",
     "-m",
     default="gpt-4o-mini",
-    help="Model to use for processing (OpenAI model name or 'local' for local model)",
+    help=(
+        "Model to use for processing (OpenAI model name or 'local' " "for local model)"
+    ),
 )
 @click.option(
     "--model-path",
     type=click.Path(exists=True),
-    help="Path to local model file (.gguf format) - required when using --local",
+    help=("Path to local model file (.gguf format) - required when using " "--local"),
 )
 @click.option(
     "--local",
@@ -76,7 +78,8 @@ def cli() -> None:
     default="standard",
     help=(
         "Prompt template format: 'standard' (OpenAI-style), "
-        "'persian' (optimized for Persian translation), 'custom' (simple format)"
+        "'persian' (optimized for Persian translation), "
+        "'custom' (simple format)"
     ),
 )
 @click.option(
@@ -115,7 +118,7 @@ def cli() -> None:
     type=float,
     default=0.1,
     help=(
-        "Temperature for model generation " "(0.0 to 1.0, lower = more deterministic)"
+        "Temperature for model generation (0.0 to 1.0, lower = more " "deterministic)"
     ),
 )
 @click.option(
@@ -211,7 +214,7 @@ def process(
     # Validate local model setup
     if local and not model_path:
         console.print(
-            "[red]Error: --model-path is required when " "using --local flag[/red]"
+            ("[red]Error: --model-path is required when using " "--local flag[/red]")
         )
         console.print(
             "[yellow]💡 Tip: Download a .gguf model from Hugging Face and "
@@ -249,9 +252,10 @@ def process(
         chunk_paragraphs=not no_paragraph_chunking,
     )
 
-    # Create output directory (only if not dry run)
-    if not dry_run:
-        output_dir_obj.mkdir(parents=True, exist_ok=True)
+    # Always ensure output/extracted directories exist (we save extracted text
+    # even in dry-run to make the default flow "extract to files, then read")
+    output_dir_obj.mkdir(parents=True, exist_ok=True)
+    default_extracted_dir = output_dir_obj / "extracted"
 
     # Display basic info
     console.print(f"[green]PDF file:[/green] {pdf_path_obj}")
@@ -267,7 +271,7 @@ def process(
     else:
         console.print("[green]Model type:[/green] OpenAI API")
         console.print(f"[green]Model:[/green] {model}")
-        console.print(f"[green]Rate limit:[/green] {rate_limit} " "requests/minute")
+        console.print(f"[green]Rate limit:[/green] {rate_limit} requests/minute")
 
     console.print(f"[green]Concurrent requests:[/green] {concurrent}")
 
@@ -284,7 +288,7 @@ def process(
         console.print("[green]Page range:[/green] All pages")
 
     if dry_run:
-        console.print("[yellow]Mode:[/yellow] Dry run (no processing will be done)")
+        console.print("[yellow]Mode:[/yellow] Dry run (no LLM calls)")
 
     # Display text preprocessing settings
     if config.preprocess_text:
@@ -307,56 +311,85 @@ def process(
     processor = PDFProcessor(config, init_llm=not dry_run)
 
     try:
-        if extracted_dir_obj is not None:
-            # Use pre-extracted paragraphs from directory
-            console.print("[blue]Loading paragraphs from extracted directory...[/blue]")
-            txt_files = sorted(extracted_dir_obj.glob("paragraph_*.txt"))
-            pages = []
-            for fp in txt_files:
-                try:
-                    pages.append(fp.read_text(encoding="utf-8"))
-                except Exception:
-                    pages.append("")
-            non_empty_pages = [p for p in pages if p.strip()]
-            console.print(
-                (
-                    f"[green]Found {len(non_empty_pages)} paragraphs in "
-                    f"{extracted_dir_obj}[/green]"
-                )
-            )
-        else:
-            # Get total page count for validation and display
-            total_pages = processor.get_pdf_page_count(pdf_path_obj)
+        # Determine extracted directory (given or default under output)
+        if extracted_dir_obj is None:
+            extracted_dir_obj = default_extracted_dir
 
-            # Validate page range
+        # If user didn't provide a pre-extracted directory,
+        # perform extraction now
+        if from_extracted_dir is None:
             try:
-                actual_start, actual_end = config.get_page_range(total_pages)
-                page_count_to_process = actual_end - actual_start + 1
-            except ValueError as e:
-                console.print(f"[red]Error: {str(e)}[/red]")
+                # Get total page count for validation and display
+                total_pages = processor.get_pdf_page_count(pdf_path_obj)
+
+                # Validate page range
+                try:
+                    (
+                        actual_start,
+                        actual_end,
+                    ) = config.get_page_range(total_pages)
+                    page_count_to_process = actual_end - actual_start + 1
+                except ValueError as e:
+                    console.print(f"[red]Error: {str(e)}[/red]")
+                    sys.exit(1)
+
+                console.print(f"[green]PDF has {total_pages} pages total[/green]")
+                console.print(
+                    (
+                        "[green]Will extract paragraphs from pages "
+                        f"{actual_start}-{actual_end} "
+                        f"({page_count_to_process} pages in range)"
+                        "[/green]"
+                    )
+                )
+
+                # Ensure extracted dir exists
+                extracted_dir_obj.mkdir(parents=True, exist_ok=True)
+
+                # Extract and save paragraphs to files
+                console.print(
+                    "[blue]Extracting and saving paragraphs to "
+                    f"{extracted_dir_obj}...[/blue]"
+                )
+                extracted_paragraphs = processor.extract_pages(pdf_path_obj)
+
+                # Write paragraph files
+                written = 0
+                for idx, content in enumerate(extracted_paragraphs, start=1):
+                    if not content.strip():
+                        continue
+                    out_file = extracted_dir_obj / f"paragraph_{idx:03d}.txt"
+                    out_file.write_text(content, encoding="utf-8")
+                    written += 1
+
+                console.print(
+                    ("[green]Saved {n} paragraph files to " "{path}[/green]").format(
+                        n=written, path=extracted_dir_obj
+                    )
+                )
+            except Exception as e:
+                console.print(f"[red]Error during extraction: {str(e)}[/red]")
+                if verbose:
+                    console.print_exception()
                 sys.exit(1)
 
-            console.print(f"[green]PDF has {total_pages} pages total[/green]")
-            console.print(
-                (
-                    "[green]Will extract paragraphs from pages "
-                    f"{actual_start}-{actual_end} "
-                    f"({page_count_to_process} pages in range)"
-                    "[/green]"
-                )
+        # Load paragraphs from extracted directory (either user-provided
+        # or newly created)
+        console.print("[blue]Loading paragraphs from extracted directory...[/blue]")
+        txt_files = sorted(extracted_dir_obj.glob("paragraph_*.txt"))
+        pages = []
+        for fp in txt_files:
+            try:
+                pages.append(fp.read_text(encoding="utf-8"))
+            except Exception:
+                pages.append("")
+        non_empty_pages = [p for p in pages if p.strip()]
+        console.print(
+            (
+                f"[green]Found {len(non_empty_pages)} paragraphs in "
+                f"{extracted_dir_obj}[/green]"
             )
-
-            # Extract paragraphs for analysis
-            console.print("[blue]Extracting paragraphs for analysis...[/blue]")
-            pages = processor.extract_pages(pdf_path_obj)
-            non_empty_pages = [p for p in pages if p.strip()]
-            console.print(
-                (
-                    "[green]Found "
-                    f"{len(non_empty_pages)} non-empty paragraphs "
-                    "to process[/green]"
-                )
-            )
+        )
 
         # Dry run: show basic info and exit without processing
         if dry_run:
