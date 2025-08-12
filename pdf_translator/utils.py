@@ -157,15 +157,6 @@ def format_duration(seconds: float) -> str:
         return f"{hours:.1f}h"
 
 
-def estimate_cost(*args: Any, **kwargs: Any) -> float:  # Backward-compat shim
-    """Deprecated: cost estimation functionality has been removed.
-
-    Always returns 0.0 to avoid breaking external callers.
-    """
-    logger.debug("estimate_cost is deprecated and will be removed in a future version")
-    return 0.0
-
-
 def create_progress_tracker():  # type: ignore
     """Create a simple progress tracking context manager."""
 
