@@ -96,7 +96,7 @@ wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/
 2. Process a PDF with the local model:
 
 ```bash
-poetry run pdf-translator process document.pdf --local --model-path ./mistral-7b-instruct-v0.1.Q4_K_M.gguf
+poetry run pdf-translator process-local document.pdf --model-path ./mistral-7b-instruct-v0.1.Q4_K_M.gguf
 ```
 
 > 💡 **See [LLAMA_SETUP.md](LLAMA_SETUP.md) for detailed local model setup guide**
@@ -120,7 +120,7 @@ poetry run pdf-translator process document.pdf
 poetry run pdf-translator process document.pdf --model gpt-3.5-turbo --output-dir ./results
 
 # Local model processing (FREE!)
-poetry run pdf-translator process document.pdf --local --model-path /path/to/model.gguf
+poetry run pdf-translator process-local document.pdf --model-path /path/to/model.gguf
 
 # Process paragraphs (full document)
 poetry run pdf-translator process document.pdf
@@ -221,10 +221,10 @@ mv *.gguf ~/models/
 
 ```bash
 # Process PDF with local model
-poetry run pdf-translator process document.pdf --local --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+poetry run pdf-translator process-local document.pdf --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
 
 # With GPU acceleration (if available)
-poetry run pdf-translator process document.pdf --local --model-path ~/models/model.gguf --n-gpu-layers 20
+poetry run pdf-translator process-local document.pdf --model-path ~/models/model.gguf --n-gpu-layers 20
 
 # Preview settings without processing (no API calls)
 poetry run pdf-translator process document.pdf --dry-run
@@ -265,10 +265,10 @@ Adjust `--n-ctx` based on your document content size:
 
 ```bash
 # Typical documents (default)
-poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 2048
+poetry run pdf-translator process-local document.pdf --model-path model.gguf --n-ctx 2048
 
 # Long documents
-poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 4096
+poetry run pdf-translator process-local document.pdf --model-path model.gguf --n-ctx 4096
 ```
 
 ### Common Model Locations
@@ -300,7 +300,7 @@ mkdir ~/models
 mv mistral-7b-instruct-v0.1.Q4_K_M.gguf ~/models/
 
 # 3. Process your PDF
-poetry run pdf-translator process my_document.pdf --local --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+poetry run pdf-translator process-local my_document.pdf --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
 
 # 4. Check results in ./output/
 ls output/

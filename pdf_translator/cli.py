@@ -33,137 +33,7 @@ def cli() -> None:
     pass
 
 
-@cli.command()
-@click.argument("pdf_path", type=click.Path(exists=True))
-@click.option(
-    "--output-dir",
-    "-o",
-    type=click.Path(),
-    default="./output",
-    help="Output directory for results",
-)
-@click.option(
-    "--model",
-    "-m",
-    default="gpt-4o-mini",
-    help=(
-        "Model to use for processing (OpenAI model name or 'local' " "for local model)"
-    ),
-)
-@click.option(
-    "--model-path",
-    type=click.Path(exists=True),
-    help=("Path to local model file (.gguf format) - required when using " "--local"),
-)
-@click.option(
-    "--local",
-    is_flag=True,
-    help="Use local model instead of OpenAI API",
-)
-@click.option(
-    "--n-gpu-layers",
-    type=int,
-    default=0,
-    help="Number of layers to offload to GPU (for local models)",
-)
-@click.option(
-    "--n-ctx",
-    type=int,
-    default=2048,
-    help="Context size for local models",
-)
-@click.option(
-    "--prompt-template",
-    type=click.Choice(["standard", "persian", "custom"], case_sensitive=False),
-    default="standard",
-    help=(
-        "Prompt template format: 'standard' (OpenAI-style), "
-        "'persian' (optimized for Persian translation), "
-        "'custom' (simple format)"
-    ),
-)
-@click.option(
-    "--prompt",
-    "-p",
-    default=(
-        "Please translate this text to English and provide a "
-        "clean, formatted version."
-    ),
-    help="Custom prompt for processing paragraphs",
-)
-@click.option(
-    "--max-retries",
-    "-r",
-    type=int,
-    default=3,
-    help="Maximum number of retry attempts",
-)
-@click.option(
-    "--rate-limit",
-    "-l",
-    type=int,
-    default=60,
-    help="Rate limit in requests per minute (ignored for local models)",
-)
-@click.option(
-    "--concurrent",
-    "-c",
-    type=int,
-    default=3,
-    help="Number of concurrent requests",
-)
-@click.option(
-    "--temperature",
-    "-t",
-    type=float,
-    default=0.1,
-    help=(
-        "Temperature for model generation (0.0 to 1.0, lower = more " "deterministic)"
-    ),
-)
-@click.option(
-    "--max-tokens",
-    type=int,
-    help=(
-        "Maximum tokens to generate per page "
-        "(default: 512 for local, None for OpenAI)"
-    ),
-)
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Enable verbose output",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be processed without making API calls",
-)
-@click.option(
-    "--no-preprocess",
-    is_flag=True,
-    help="Disable text preprocessing (skip cleaning headers/footers, etc.)",
-)
-@click.option(
-    "--keep-headers-footers",
-    is_flag=True,
-    help="Keep headers and footers during preprocessing",
-)
-@click.option(
-    "--no-paragraph-chunking",
-    is_flag=True,
-    help="Disable paragraph chunking during preprocessing",
-)
-@click.option(
-    "--from-extracted-dir",
-    type=click.Path(exists=True, file_okay=False),
-    help=(
-        "Directory containing pre-extracted paragraph_*.txt files to process "
-        "(skips in-PDF extraction)"
-    ),
-)
-def process(
+def process_core(
     pdf_path: str,
     output_dir: str,
     model: str,
@@ -186,7 +56,7 @@ def process(
     no_paragraph_chunking: bool,
     from_extracted_dir: Optional[str],
 ) -> None:
-    """Process a PDF file by extracting paragraphs and processing them with LLMs."""
+    """Core processing logic used by provider-specific commands."""
 
     # Convert string paths to Path objects
     pdf_path_obj = Path(pdf_path)
@@ -410,6 +280,309 @@ def process(
 
 
 @cli.command()
+@click.argument("pdf_path", type=click.Path(exists=True))
+@click.option(
+    "--output-dir",
+    "-o",
+    type=click.Path(),
+    default="./output",
+    help="Output directory for results",
+)
+@click.option(
+    "--model",
+    "-m",
+    default="gpt-4o-mini",
+    help="OpenAI model to use for processing",
+)
+@click.option(
+    "--prompt-template",
+    type=click.Choice(["standard", "persian", "custom"], case_sensitive=False),
+    default="standard",
+    help=(
+        "Prompt template format: 'standard' (OpenAI-style), "
+        "'persian' (optimized for Persian translation), "
+        "'custom' (simple format)"
+    ),
+)
+@click.option(
+    "--prompt",
+    "-p",
+    default=(
+        "Please translate this text to English and provide a "
+        "clean, formatted version."
+    ),
+    help="Custom prompt for processing paragraphs",
+)
+@click.option(
+    "--max-retries",
+    "-r",
+    type=int,
+    default=3,
+    help="Maximum number of retry attempts",
+)
+@click.option(
+    "--rate-limit",
+    "-l",
+    type=int,
+    default=60,
+    help="Rate limit in requests per minute",
+)
+@click.option(
+    "--concurrent",
+    "-c",
+    type=int,
+    default=3,
+    help="Number of concurrent requests",
+)
+@click.option(
+    "--temperature",
+    "-t",
+    type=float,
+    default=0.1,
+    help=("Temperature for model generation (0.0 to 1.0, lower = more deterministic)"),
+)
+@click.option(
+    "--max-tokens",
+    type=int,
+    help="Maximum tokens to generate per paragraph (default: None)",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Enable verbose output",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be processed without making API calls",
+)
+@click.option(
+    "--no-preprocess",
+    is_flag=True,
+    help="Disable text preprocessing (skip cleaning headers/footers, etc.)",
+)
+@click.option(
+    "--keep-headers-footers",
+    is_flag=True,
+    help="Keep headers and footers during preprocessing",
+)
+@click.option(
+    "--no-paragraph-chunking",
+    is_flag=True,
+    help="Disable paragraph chunking during preprocessing",
+)
+@click.option(
+    "--from-extracted-dir",
+    type=click.Path(exists=True, file_okay=False),
+    help=(
+        "Directory containing pre-extracted paragraph_*.txt files to process "
+        "(skips in-PDF extraction)"
+    ),
+)
+def process(
+    pdf_path: str,
+    output_dir: str,
+    model: str,
+    prompt_template: str,
+    prompt: str,
+    max_retries: int,
+    rate_limit: int,
+    concurrent: int,
+    temperature: float,
+    max_tokens: Optional[int],
+    verbose: bool,
+    dry_run: bool,
+    no_preprocess: bool,
+    keep_headers_footers: bool,
+    no_paragraph_chunking: bool,
+    from_extracted_dir: Optional[str],
+) -> None:
+    """Process a PDF file by extracting paragraphs and processing them with OpenAI.
+
+    This is the default (OpenAI) processor. For local models, use 'process-local'.
+    """
+    process_core(
+        pdf_path=pdf_path,
+        output_dir=output_dir,
+        model=model,
+        model_path=None,
+        local=False,
+        n_gpu_layers=0,
+        n_ctx=2048,
+        prompt_template=prompt_template,
+        prompt=prompt,
+        max_retries=max_retries,
+        rate_limit=rate_limit,
+        concurrent=concurrent,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        verbose=verbose,
+        dry_run=dry_run,
+        no_preprocess=no_preprocess,
+        keep_headers_footers=keep_headers_footers,
+        no_paragraph_chunking=no_paragraph_chunking,
+        from_extracted_dir=from_extracted_dir,
+    )
+
+
+@cli.command(name="process-local")
+@click.argument("pdf_path", type=click.Path(exists=True))
+@click.option(
+    "--output-dir",
+    "-o",
+    type=click.Path(),
+    default="./output",
+    help="Output directory for results",
+)
+@click.option(
+    "--model-path",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to local model file (.gguf format)",
+)
+@click.option(
+    "--model",
+    "-m",
+    default="local-llama",
+    help="Logical name to record for the local model (optional)",
+)
+@click.option(
+    "--n-gpu-layers",
+    type=int,
+    default=0,
+    help="Number of layers to offload to GPU",
+)
+@click.option(
+    "--n-ctx",
+    type=int,
+    default=2048,
+    help="Context size for the local model",
+)
+@click.option(
+    "--prompt-template",
+    type=click.Choice(["standard", "persian", "custom"], case_sensitive=False),
+    default="standard",
+    help="Prompt template to use",
+)
+@click.option(
+    "--prompt",
+    "-p",
+    default=(
+        "Please translate this text to English and provide a "
+        "clean, formatted version."
+    ),
+    help="Custom prompt for processing paragraphs",
+)
+@click.option(
+    "--max-retries",
+    "-r",
+    type=int,
+    default=3,
+    help="Maximum number of retry attempts",
+)
+@click.option(
+    "--concurrent",
+    "-c",
+    type=int,
+    default=3,
+    help="Number of concurrent paragraphs to process",
+)
+@click.option(
+    "--temperature",
+    "-t",
+    type=float,
+    default=0.1,
+    help=("Temperature for model generation (0.0 to 1.0, lower = more deterministic)"),
+)
+@click.option(
+    "--max-tokens",
+    type=int,
+    default=512,
+    show_default=True,
+    help="Maximum tokens to generate per paragraph",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Enable verbose output",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be processed without running the local model",
+)
+@click.option(
+    "--no-preprocess",
+    is_flag=True,
+    help="Disable text preprocessing (skip cleaning headers/footers, etc.)",
+)
+@click.option(
+    "--keep-headers-footers",
+    is_flag=True,
+    help="Keep headers and footers during preprocessing",
+)
+@click.option(
+    "--no-paragraph-chunking",
+    is_flag=True,
+    help="Disable paragraph chunking during preprocessing",
+)
+@click.option(
+    "--from-extracted-dir",
+    type=click.Path(exists=True, file_okay=False),
+    help=(
+        "Directory containing pre-extracted paragraph_*.txt files to process "
+        "(skips in-PDF extraction)"
+    ),
+)
+def process_local(
+    pdf_path: str,
+    output_dir: str,
+    model_path: str,
+    model: str,
+    n_gpu_layers: int,
+    n_ctx: int,
+    prompt_template: str,
+    prompt: str,
+    max_retries: int,
+    concurrent: int,
+    temperature: float,
+    max_tokens: int,
+    verbose: bool,
+    dry_run: bool,
+    no_preprocess: bool,
+    keep_headers_footers: bool,
+    no_paragraph_chunking: bool,
+    from_extracted_dir: Optional[str],
+) -> None:
+    """Process a PDF file using a local llama-cpp model."""
+    # Local flow does not use API rate limiting, set to a benign value
+    process_core(
+        pdf_path=pdf_path,
+        output_dir=output_dir,
+        model=model,
+        model_path=model_path,
+        local=True,
+        n_gpu_layers=n_gpu_layers,
+        n_ctx=n_ctx,
+        prompt_template=prompt_template,
+        prompt=prompt,
+        max_retries=max_retries,
+        rate_limit=60,
+        concurrent=concurrent,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        verbose=verbose,
+        dry_run=dry_run,
+        no_preprocess=no_preprocess,
+        keep_headers_footers=keep_headers_footers,
+        no_paragraph_chunking=no_paragraph_chunking,
+        from_extracted_dir=from_extracted_dir,
+    )
+
+
+@cli.command()
 @click.argument("input_path", type=click.Path(exists=True))
 @click.option(
     "--output-dir",
@@ -614,7 +787,7 @@ def models(search_paths: tuple[str, ...]) -> None:
 
         console.print("\n[blue]💡 To use a local model:[/blue]")
         console.print(
-            "[dim]pdf-translator process your_file.pdf --local "
+            "[dim]pdf-translator process-local your_file.pdf "
             "--model-path /path/to/model.gguf[/dim]"
         )
     else:

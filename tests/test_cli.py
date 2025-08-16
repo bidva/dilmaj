@@ -96,3 +96,21 @@ class TestCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["process", "nonexistent.pdf"])
         assert result.exit_code == 2  # Click's file not found exit code
+
+    def test_process_local_help(self):
+        """Test process-local command help."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["process-local", "--help"])  # type: ignore
+        assert result.exit_code == 0
+        assert (
+            "Process a PDF file" in result.output
+            or "Process a PDF file using a local" in result.output
+        )
+
+    def test_process_local_requires_model_path(self):
+        """process-local should require --model-path."""
+        runner = CliRunner()
+        with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp_pdf:
+            result = runner.invoke(cli, ["process-local", tmp_pdf.name])
+            # Missing required option -> Click error code 2
+            assert result.exit_code == 2
