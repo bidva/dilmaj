@@ -89,80 +89,40 @@ class PDFProcessor:
                 continue
         return self.extractor
 
-    def get_pdf_page_count(self, pdf_path: Path) -> int:
-        """Get the total number of pages/units in a document.
+    def extract_paragraphs(self, path: Path) -> List[str]:
+        """Extract text content as paragraphs for the entire document.
 
         Args:
-            pdf_path: Path to the PDF file
+            path: Path to the input document (PDF/DOCX/DOC)
 
         Returns:
-            Total number of pages in the PDF
+            List of paragraph strings for the whole document
 
         Raises:
-            PDFProcessingError: If PDF cannot be read
+            PDFProcessingError: If the document cannot be processed
         """
         try:
-            extractor = self._select_extractor(pdf_path)
-            if not extractor.supports(pdf_path):
-                raise PDFProcessingError(
-                    f"No extractor available for file type: {pdf_path.suffix}"
-                )
-            # Update default extractor to the selected one
+            # Ensure extractor is selected based on file type
+            extractor = self._select_extractor(path)
             self.extractor = extractor
-            return extractor.get_page_count(pdf_path)
-        except Exception as e:
-            if isinstance(e, PDFProcessingError):
-                raise
-            raise PDFProcessingError(f"Failed to read PDF {pdf_path}: {str(e)}")
-
-    def extract_pages(self, pdf_path: Path) -> List[str]:
-        """Extract text content as paragraphs from the specified page range.
-
-        Args:
-            pdf_path: Path to the PDF file
-
-        Returns:
-            List of paragraph strings derived from the specified page range
-
-        Raises:
-            PDFProcessingError: If PDF cannot be processed
-        """
-        try:
-            total_pages = self.get_pdf_page_count(pdf_path)
-
-            # Get page range from config
-            try:
-                start_page, end_page = self.config.get_page_range(total_pages)
-            except ValueError as e:
-                raise PDFProcessingError(f"Invalid page range: {str(e)}")
-
-            logger.info(
-                f"Extracting paragraphs from pages {start_page} to {end_page} "
-                f"of {total_pages} total pages"
-            )
 
             options = ExtractionOptions(
-                start_page=start_page,
-                end_page=end_page,
                 preprocess_text=self.config.preprocess_text,
                 remove_headers_footers=self.config.remove_headers_footers,
                 chunk_paragraphs=self.config.chunk_paragraphs,
             )
-            # Ensure extractor is selected based on file type
-            extractor = self._select_extractor(pdf_path)
-            self.extractor = extractor
-            pages = extractor.extract_pages(pdf_path, options)
-            if not any(page.strip() for page in pages):
+
+            paragraphs = extractor.extract_paragraphs(path, options)
+            if not any(p.strip() for p in paragraphs):
                 raise PDFProcessingError(
-                    "No paragraph content found in pages "
-                    f"{start_page}-{end_page} of PDF: {pdf_path}"
+                    f"No paragraph content found in document: {path}"
                 )
-            return pages
+            return paragraphs
 
         except Exception as e:
             if isinstance(e, PDFProcessingError):
                 raise
-            raise PDFProcessingError(f"Failed to process document {pdf_path}: {str(e)}")
+            raise PDFProcessingError(f"Failed to process document {path}: {str(e)}")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -323,25 +283,8 @@ class PDFProcessor:
 
             # Save combined results
             summary_file = output_dir / "processing_summary.json"
-
-            # Get page range info for summary
-            total_pages_in_pdf = len(pages)
-            start_page = 1
-            end_page = len(pages)
-
-            if pdf_path and pdf_path.exists():
-                try:
-                    total_pages_in_pdf = self.get_pdf_page_count(pdf_path)
-                    start_page, end_page = self.config.get_page_range(
-                        total_pages_in_pdf
-                    )
-                except Exception:
-                    pass  # Use defaults
-
             summary = {
-                "total_pages_in_pdf": total_pages_in_pdf,
-                "page_range_requested": f"{start_page}-{end_page}",
-                "paragraphs_processed": len(pages),
+                "paragraphs_total": len(pages),
                 "successful_paragraphs": len(results),
                 "failed_paragraphs": len(pages) - len(results),
                 "config": self.config.to_dict(),

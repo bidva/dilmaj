@@ -89,7 +89,7 @@ def cli() -> None:
         "Please translate this text to English and provide a "
         "clean, formatted version."
     ),
-    help="Custom prompt for processing pages",
+    help="Custom prompt for processing paragraphs",
 )
 @click.option(
     "--max-retries",
@@ -136,18 +136,6 @@ def cli() -> None:
     help="Enable verbose output",
 )
 @click.option(
-    "--start-page",
-    "-s",
-    type=int,
-    help="First page to translate (1-based). Default: 1",
-)
-@click.option(
-    "--end-page",
-    "-e",
-    type=int,
-    help="Last page to translate (1-based). Default: last page",
-)
-@click.option(
     "--dry-run",
     is_flag=True,
     help="Show what would be processed without making API calls",
@@ -191,16 +179,14 @@ def process(
     temperature: float,
     max_tokens: Optional[int],
     verbose: bool,
-    start_page: Optional[int],
-    end_page: Optional[int],
+    # page options removed
     dry_run: bool,
     no_preprocess: bool,
     keep_headers_footers: bool,
     no_paragraph_chunking: bool,
     from_extracted_dir: Optional[str],
 ) -> None:
-    """Process a PDF file by slicing it into pages and
-    processing each with LLMs."""
+    """Process a PDF file by extracting paragraphs and processing them with LLMs."""
 
     # Convert string paths to Path objects
     pdf_path_obj = Path(pdf_path)
@@ -240,8 +226,6 @@ def process(
         verbose=verbose,
         temperature=temperature,
         max_tokens=max_tokens or (512 if local else None),
-        start_page=start_page,
-        end_page=end_page,
         model_path=str(model_path_obj) if model_path_obj else None,
         model_type=model_type,
         n_gpu_layers=n_gpu_layers,
@@ -275,17 +259,7 @@ def process(
 
     console.print(f"[green]Concurrent requests:[/green] {concurrent}")
 
-    if start_page is not None or end_page is not None:
-        page_range_text = f"Pages: {start_page or 1}-{end_page or 'last'}"
-        console.print(
-            (
-                "[green]Page range (source pages to extract paragraphs "
-                "from):[/green] "
-                f"{page_range_text}"
-            )
-        )
-    else:
-        console.print("[green]Page range:[/green] All pages")
+    # Page range removed; processing entire document into paragraphs
 
     if dry_run:
         console.print("[yellow]Mode:[/yellow] Dry run (no LLM calls)")
@@ -319,28 +293,8 @@ def process(
         # perform extraction now
         if from_extracted_dir is None:
             try:
-                # Get total page count for validation and display
-                total_pages = processor.get_pdf_page_count(pdf_path_obj)
-
-                # Validate page range
-                try:
-                    (
-                        actual_start,
-                        actual_end,
-                    ) = config.get_page_range(total_pages)
-                    page_count_to_process = actual_end - actual_start + 1
-                except ValueError as e:
-                    console.print(f"[red]Error: {str(e)}[/red]")
-                    sys.exit(1)
-
-                console.print(f"[green]PDF has {total_pages} pages total[/green]")
                 console.print(
-                    (
-                        "[green]Will extract paragraphs from pages "
-                        f"{actual_start}-{actual_end} "
-                        f"({page_count_to_process} pages in range)"
-                        "[/green]"
-                    )
+                    "[green]Extracting paragraphs from entire document[/green]"
                 )
 
                 # Ensure extracted dir exists
@@ -351,7 +305,7 @@ def process(
                     "[blue]Extracting and saving paragraphs to "
                     f"{extracted_dir_obj}...[/blue]"
                 )
-                extracted_paragraphs = processor.extract_pages(pdf_path_obj)
+                extracted_paragraphs = processor.extract_paragraphs(pdf_path_obj)
 
                 # Write paragraph files
                 written = 0
@@ -418,7 +372,7 @@ def process(
                 completed=len(pages),
             )
 
-            # Display extracted page info
+            # Display extracted paragraph info
             console.print(
                 (
                     f"[green]Processing {len(non_empty_pages)} non-empty "
@@ -464,18 +418,7 @@ def process(
     default="./output",
     help="Output directory where extracted chunks will be saved",
 )
-@click.option(
-    "--start-page",
-    "-s",
-    type=int,
-    help="First page to extract from (1-based). Default: 1",
-)
-@click.option(
-    "--end-page",
-    "-e",
-    type=int,
-    help="Last page to extract from (1-based). Default: last page",
-)
+# page range options removed for paragraph-only extraction
 @click.option(
     "--verbose",
     "-v",
@@ -508,8 +451,7 @@ def process(
 def extract(
     input_path: str,
     output_dir: str,
-    start_page: Optional[int],
-    end_page: Optional[int],
+    # removed page args
     verbose: bool,
     no_preprocess: bool,
     keep_headers_footers: bool,
@@ -529,8 +471,6 @@ def extract(
     # Prepare config for extraction-only flow
     config = Config(
         verbose=verbose,
-        start_page=start_page,
-        end_page=end_page,
         preprocess_text=not no_preprocess,
         remove_headers_footers=not keep_headers_footers,
         chunk_paragraphs=not no_paragraph_chunking,
@@ -578,7 +518,7 @@ def extract(
     try:
         # Extract paragraphs
         console.print("[blue]Extracting and chunking text...[/blue]")
-        paragraphs = processor.extract_pages(input_path_obj)
+        paragraphs = processor.extract_paragraphs(input_path_obj)
 
         # Save paragraphs to files
         for idx, content in enumerate(paragraphs, start=1):

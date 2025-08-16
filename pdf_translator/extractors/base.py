@@ -1,4 +1,4 @@
-"""Base interfaces for document text extractors."""
+"""Base interfaces for document text extractors (paragraph-oriented)."""
 
 from __future__ import annotations
 
@@ -9,13 +9,9 @@ from typing import List, Protocol
 
 @dataclass(frozen=True)
 class ExtractionOptions:
-    """Options to control text extraction.
+    """Options to control text extraction and preprocessing.
 
     Attributes:
-        start_page: 1-based inclusive start page (for paged docs).
-            If None, starts at 1.
-        end_page: 1-based inclusive end page (for paged docs).
-            If None, goes to last page.
         preprocess_text: Whether to perform general text preprocessing.
         remove_headers_footers: Whether to try removing headers/footers when
             preprocessing.
@@ -23,8 +19,6 @@ class ExtractionOptions:
             preprocessing.
     """
 
-    start_page: int | None = None
-    end_page: int | None = None
     preprocess_text: bool = True
     remove_headers_footers: bool = True
     chunk_paragraphs: bool = True
@@ -40,17 +34,9 @@ class DocumentExtractor(Protocol):
         """Return True if this extractor can handle the given file/path."""
         ...
 
-    def get_page_count(self, path: Path) -> int:
-        """Return number of pages/parts for the document (>=1).
+    def extract_paragraphs(self, path: Path, options: ExtractionOptions) -> List[str]:
+        """Extract textual content as paragraphs for the entire document.
 
-        For non-paged documents, return 1.
-        """
-        ...
-
-    def extract_pages(self, path: Path, options: ExtractionOptions) -> List[str]:
-        """Extract textual content for each requested page (or unit).
-
-        Return a list where index 0 corresponds to `options.start_page`.
-        Empty strings may be used for pages with no extractable text.
+        Return a list of non-empty paragraph strings in reading order.
         """
         ...

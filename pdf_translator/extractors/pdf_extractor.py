@@ -16,43 +16,20 @@ logger = logging.getLogger(__name__)
 
 
 class PDFExtractor(DocumentExtractor):
-    """Extract text from PDFs with optional preprocessing."""
+    """Extract text from PDFs with optional preprocessing (paragraph-only)."""
 
     def supports(self, path: Path) -> bool:
         return path.suffix.lower() == ".pdf"
 
-    def get_page_count(self, path: Path) -> int:
-        try:
-            reader = PdfReader(str(path))
-            return len(reader.pages)
-        except Exception as e:
-            raise RuntimeError(f"Failed to read PDF {path}: {e}")
-
-    def extract_pages(self, path: Path, options: ExtractionOptions) -> List[str]:
-        """Extract text as a list of paragraphs from the selected page range.
-
-        Note: This implementation aggregates the selected pages and returns
-        paragraph-level chunks instead of one string per page.
-        """
+    def extract_paragraphs(self, path: Path, options: ExtractionOptions) -> List[str]:
+        """Extract text as a list of paragraphs for the entire document."""
         try:
             reader = PdfReader(str(path))
             total_pages = len(reader.pages)
 
-            # Normalize page range
-            start = options.start_page if options.start_page is not None else 1
-            end = options.end_page if options.end_page is not None else total_pages
-            if start < 1:
-                raise ValueError(f"Start page must be >= 1, got {start}")
-            if end > total_pages:
-                raise ValueError(f"End page {end} exceeds total pages {total_pages}")
-            if start > end:
-                raise ValueError(
-                    f"Start page {start} cannot be greater than end page {end}"
-                )
-
-            # Extract raw text for the requested range and aggregate
+            # Extract raw text for the whole document and aggregate
             raw_chunks: List[str] = []
-            for page_num in range(start - 1, end):
+            for page_num in range(0, total_pages):
                 try:
                     page = reader.pages[page_num]
                     text = (page.extract_text() or "").strip()
@@ -74,9 +51,7 @@ class PDFExtractor(DocumentExtractor):
             combined_text = "\n\n".join(chunk for chunk in raw_chunks if chunk)
 
             if not combined_text.strip():
-                raise RuntimeError(
-                    f"No text content found in pages {start}-{end} of PDF: {path}"
-                )
+                raise RuntimeError(f"No text content found in PDF: {path}")
 
             # Preprocess and split into paragraphs
             if options.preprocess_text:
@@ -95,14 +70,11 @@ class PDFExtractor(DocumentExtractor):
 
             if not paragraphs:
                 raise RuntimeError(
-                    (
-                        f"No paragraph content could be derived from pages "
-                        f"{start}-{end} of PDF: {path}"
-                    )
+                    (f"No paragraph content could be derived for PDF: {path}")
                 )
 
             logger.debug(
-                "Aggregated pages %s-%s into %s paragraphs", start, end, len(paragraphs)
+                "Aggregated %s pages into %s paragraphs", total_pages, len(paragraphs)
             )
             return paragraphs
         except Exception:

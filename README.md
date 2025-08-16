@@ -1,11 +1,11 @@
 # PDF Translator CLI
 
-A powerful CLI tool that slices PDF files into individual pages and processes each page using AI models (OpenAI GPT or local LLaMA models) with robust error handling and retry mechanisms.
+A powerful CLI tool that extracts paragraphs from documents and processes them with AI models (OpenAI GPT or local LLaMA models) with robust error handling and retry mechanisms.
 
 ## Features
 
-- 📄 Slice PDF files into individual pages
-- 🤖 Process each page with AI models:
+- 📄 Extract paragraphs from documents
+- 🤖 Process each paragraph with AI models:
   - **OpenAI GPT models** (GPT-4, GPT-3.5-turbo, GPT-4o-mini)
   - **Local LLaMA models** (FREE - no API costs!)
 - 💰 **Cost-free processing** with local models via llama-cpp-python
@@ -122,8 +122,8 @@ poetry run pdf-translator process document.pdf --model gpt-3.5-turbo --output-di
 # Local model processing (FREE!)
 poetry run pdf-translator process document.pdf --local --model-path /path/to/model.gguf
 
-# Process only specific pages
-poetry run pdf-translator process document.pdf --start-page 1 --end-page 5
+# Process paragraphs (full document)
+poetry run pdf-translator process document.pdf
 
 # Custom prompt
 poetry run pdf-translator process document.pdf --prompt "Translate to French and summarize"
@@ -167,10 +167,12 @@ pdf-translator process FILE.pdf --local --model-path PATH [OPTIONS]
 
 **Common Options:**
 ```bash
-  --start-page INTEGER      First page to process (1-based)
-  --end-page INTEGER        Last page to process (1-based)
   --dry-run                 Show what would be processed
   --verbose                 Enable verbose output
+  --no-preprocess           Disable text preprocessing
+  --keep-headers-footers    Keep headers and footers during preprocessing
+  --no-paragraph-chunking   Disable paragraph chunking during preprocessing
+  --from-extracted-dir PATH Process pre-extracted paragraph_*.txt in this directory
 ```
 
 
@@ -224,7 +226,7 @@ poetry run pdf-translator process document.pdf --local --model-path ~/models/mis
 # With GPU acceleration (if available)
 poetry run pdf-translator process document.pdf --local --model-path ~/models/model.gguf --n-gpu-layers 20
 
-# Preview pages and settings without processing (no API calls)
+# Preview settings without processing (no API calls)
 poetry run pdf-translator process document.pdf --dry-run
 ```
 
@@ -259,13 +261,13 @@ poetry run pdf-translator process document.pdf --local --model-path model.gguf -
 
 #### Context Size
 
-Adjust `--n-ctx` based on your document page size:
+Adjust `--n-ctx` based on your document content size:
 
 ```bash
-# Small pages (default)
+# Typical documents (default)
 poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 2048
 
-# Large pages
+# Long documents
 poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 4096
 ```
 
@@ -281,7 +283,7 @@ The tool automatically searches these directories:
 
 ### Cost Comparison
 
-| Processing Method | 100 pages | 1000 pages | Notes |
+| Processing Method | 100 paragraphs | 1000 paragraphs | Notes |
 |-------------------|-----------|------------|-------|
 | **Local Model** | $0.00 | $0.00 | Always free! |
 | GPT-4o-mini | ~$0.50 | ~$5.00 | API costs |
@@ -341,9 +343,6 @@ To fix API key issues:
 3. **Slow processing**: Add GPU layers with `--n-gpu-layers` if you have a compatible GPU
 4. **Model format error**: Ensure you're using a `.gguf` format model file
 
-#### Performance Issues
-
-```bash
 #### Performance Issues
 
 ```bash

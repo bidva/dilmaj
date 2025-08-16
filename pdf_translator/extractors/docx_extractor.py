@@ -24,11 +24,6 @@ class WordExtractor(DocumentExtractor):
     def supports(self, path: Path) -> bool:
         return path.suffix.lower() in {".docx", ".doc"}
 
-    def get_page_count(self, path: Path) -> int:
-        # Word documents do not have a stable page concept without rendering.
-        # Treat whole document as a single unit.
-        return 1
-
     def _extract_docx_text(self, path: Path) -> str:
         try:
             from docx import Document  # type: ignore
@@ -74,7 +69,7 @@ class WordExtractor(DocumentExtractor):
         except Exception as e:
             raise RuntimeError(f"Failed to read DOC {path}: {e}")
 
-    def extract_pages(self, path: Path, options: ExtractionOptions) -> List[str]:
+    def extract_paragraphs(self, path: Path, options: ExtractionOptions) -> List[str]:
         try:
             suffix = path.suffix.lower()
             if suffix == ".docx":
