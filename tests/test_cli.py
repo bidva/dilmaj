@@ -96,5 +96,3 @@ class TestCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["process", "nonexistent.pdf"])
         assert result.exit_code == 2  # Click's file not found exit code
-
-    # Local processing tests removed

@@ -26,7 +26,6 @@ def validate_api_key(model_type: str = "openai") -> str:
     Raises:
         ConfigurationError: If API key is missing for OpenAI models
     """
-    # Only OpenAI supported; local models removed
 
     api_key = os.getenv("OPENAI_API_KEY")
 
@@ -456,6 +455,3 @@ def _chunk_into_paragraphs(text: str) -> str:
 
     # Join paragraphs with double newlines
     return "\n\n".join(p for p in paragraphs if p.strip())
-
-
-## Local model utilities removed
