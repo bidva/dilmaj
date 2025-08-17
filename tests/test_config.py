@@ -2,7 +2,7 @@
 
 import pytest
 
-from pdf_translator.config import Config
+from dilmaj.config import Config
 
 
 class TestConfig:

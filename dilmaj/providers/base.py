@@ -11,7 +11,7 @@ from typing import Optional
 class ProviderConfig:
     """Normalized provider configuration.
 
-    This mirrors a subset of pdf_translator.config.Config relevant to
+    This mirrors a subset of dilmaj.config.Config relevant to
     providers, so providers don't depend on the app-level Config directly.
     """
 

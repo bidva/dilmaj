@@ -1,5 +1,5 @@
 [project]
-name = "pdf-translator"
+name = "dilmaj"
 version = "0.1.0"
 description = "A CLI tool to slice PDF files per page and process each page with GPT models"
 authors = [
@@ -10,10 +10,10 @@ requires-python = ">=3.9"
 dynamic = ["dependencies"]
 
 [project.scripts]
-pdf-translator = "pdf_translator.cli:main"
+dilmaj = "dilmaj.cli:main"
 
 [tool.poetry]
-packages = [{include = "pdf_translator"}]
+packages = [{include = "dilmaj"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"

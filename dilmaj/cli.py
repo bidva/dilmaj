@@ -27,7 +27,7 @@ console = Console()
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="pdf-translator")
+@click.version_option(version="0.1.0", prog_name="dilmaj")
 def cli() -> None:
     """PDF Translator CLI - Slice PDFs and process with GPT models."""
     pass
@@ -733,7 +733,7 @@ def extract(
             )
         )
         console.print(
-            ("Example: pdf-translator process INPUT.pdf " "--output-dir ./output ...")
+            ("Example: dilmaj process INPUT.pdf " "--output-dir ./output ...")
         )
 
     except Exception as e:
@@ -787,7 +787,7 @@ def models(search_paths: tuple[str, ...]) -> None:
 
         console.print("\n[blue]💡 To use a local model:[/blue]")
         console.print(
-            "[dim]pdf-translator process-local your_file.pdf "
+            "[dim]dilmaj process-local your_file.pdf "
             "--model-path /path/to/model.gguf[/dim]"
         )
     else:

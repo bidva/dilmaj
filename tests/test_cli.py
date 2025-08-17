@@ -5,7 +5,7 @@ import tempfile
 
 from click.testing import CliRunner
 
-from pdf_translator.cli import cli
+from dilmaj.cli import cli
 
 
 class TestCLI:

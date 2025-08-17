@@ -82,7 +82,7 @@ cp .env.example .env
 2. Process a PDF:
 
 ```bash
-poetry run pdf-translator process document.pdf --model gpt-4o-mini
+poetry run dilmaj process document.pdf --model gpt-4o-mini
 ```
 
 ### Option 2: Using Local Models (FREE!)
@@ -96,7 +96,7 @@ wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/
 2. Process a PDF with the local model:
 
 ```bash
-poetry run pdf-translator process-local document.pdf --model-path ./mistral-7b-instruct-v0.1.Q4_K_M.gguf
+poetry run dilmaj process-local document.pdf --model-path ./mistral-7b-instruct-v0.1.Q4_K_M.gguf
 ```
 
 > 💡 **See [LLAMA_SETUP.md](LLAMA_SETUP.md) for detailed local model setup guide**
@@ -107,39 +107,39 @@ poetry run pdf-translator process-local document.pdf --model-path ./mistral-7b-i
 
 ```bash
 # See what would be processed without making any API calls
-poetry run pdf-translator process document.pdf --dry-run
+poetry run dilmaj process document.pdf --dry-run
 ```
 
 ### Processing PDFs
 
 ```bash
 # Basic OpenAI processing
-poetry run pdf-translator process document.pdf
+poetry run dilmaj process document.pdf
 
 # With specific model and output directory
-poetry run pdf-translator process document.pdf --model gpt-3.5-turbo --output-dir ./results
+poetry run dilmaj process document.pdf --model gpt-3.5-turbo --output-dir ./results
 
 # Local model processing (FREE!)
-poetry run pdf-translator process-local document.pdf --model-path /path/to/model.gguf
+poetry run dilmaj process-local document.pdf --model-path /path/to/model.gguf
 
 # Process paragraphs (full document)
-poetry run pdf-translator process document.pdf
+poetry run dilmaj process document.pdf
 
 # Custom prompt
-poetry run pdf-translator process document.pdf --prompt "Translate to French and summarize"
+poetry run dilmaj process document.pdf --prompt "Translate to French and summarize"
 
 # Dry run (see what would be processed without API calls)
-poetry run pdf-translator process document.pdf --dry-run
+poetry run dilmaj process document.pdf --dry-run
 ```
 
 ### Managing Local Models
 
 ```bash
 # List available and suggested models
-poetry run pdf-translator models
+poetry run dilmaj models
 
 # Search custom directories for models
-poetry run pdf-translator models --search-paths ~/my-models --search-paths /shared/models
+poetry run dilmaj models --search-paths ~/my-models --search-paths /shared/models
 ```
 
 ## Command Reference
@@ -148,7 +148,7 @@ poetry run pdf-translator models --search-paths ~/my-models --search-paths /shar
 
 **OpenAI Models:**
 ```bash
-pdf-translator process FILE.pdf [OPTIONS]
+dilmaj process FILE.pdf [OPTIONS]
   --model TEXT              Model name (gpt-4o-mini, gpt-3.5-turbo, etc.)
   --output-dir PATH         Output directory (default: ./output)
   --prompt TEXT             Custom processing prompt
@@ -158,7 +158,7 @@ pdf-translator process FILE.pdf [OPTIONS]
 
 **Local Models:**
 ```bash
-pdf-translator process FILE.pdf --local --model-path PATH [OPTIONS]
+dilmaj process FILE.pdf --local --model-path PATH [OPTIONS]
   --local                   Use local model instead of OpenAI
   --model-path PATH         Path to .gguf model file (required with --local)
   --n-gpu-layers INTEGER    GPU layers to offload (default: 0)
@@ -179,7 +179,7 @@ pdf-translator process FILE.pdf --local --model-path PATH [OPTIONS]
 ### `models` - Manage Local Models
 
 ```bash
-pdf-translator models [--search-paths PATH]
+dilmaj models [--search-paths PATH]
 ```
 
 ## Local Model Setup
@@ -221,13 +221,13 @@ mv *.gguf ~/models/
 
 ```bash
 # Process PDF with local model
-poetry run pdf-translator process-local document.pdf --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+poetry run dilmaj process-local document.pdf --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
 
 # With GPU acceleration (if available)
-poetry run pdf-translator process-local document.pdf --model-path ~/models/model.gguf --n-gpu-layers 20
+poetry run dilmaj process-local document.pdf --model-path ~/models/model.gguf --n-gpu-layers 20
 
 # Preview settings without processing (no API calls)
-poetry run pdf-translator process document.pdf --dry-run
+poetry run dilmaj process document.pdf --dry-run
 ```
 
 ### Model Recommendations
@@ -247,10 +247,10 @@ If you have a compatible GPU, use `--n-gpu-layers` to offload computation:
 
 ```bash
 # For modern GPUs (RTX 3060+, M1 Mac+)
-poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-gpu-layers 32
+poetry run dilmaj process document.pdf --local --model-path model.gguf --n-gpu-layers 32
 
 # For older/limited VRAM
-poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-gpu-layers 10
+poetry run dilmaj process document.pdf --local --model-path model.gguf --n-gpu-layers 10
 ```
 
 #### Memory Management
@@ -265,10 +265,10 @@ Adjust `--n-ctx` based on your document content size:
 
 ```bash
 # Typical documents (default)
-poetry run pdf-translator process-local document.pdf --model-path model.gguf --n-ctx 2048
+poetry run dilmaj process-local document.pdf --model-path model.gguf --n-ctx 2048
 
 # Long documents
-poetry run pdf-translator process-local document.pdf --model-path model.gguf --n-ctx 4096
+poetry run dilmaj process-local document.pdf --model-path model.gguf --n-ctx 4096
 ```
 
 ### Common Model Locations
@@ -300,7 +300,7 @@ mkdir ~/models
 mv mistral-7b-instruct-v0.1.Q4_K_M.gguf ~/models/
 
 # 3. Process your PDF
-poetry run pdf-translator process-local my_document.pdf --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+poetry run dilmaj process-local my_document.pdf --model-path ~/models/mistral-7b-instruct-v0.1.Q4_K_M.gguf
 
 # 4. Check results in ./output/
 ls output/
@@ -347,10 +347,10 @@ To fix API key issues:
 
 ```bash
 # If model is running slowly, try GPU acceleration
-poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-gpu-layers 20
+poetry run dilmaj process document.pdf --local --model-path model.gguf --n-gpu-layers 20
 
 # If running out of memory, reduce context size
-poetry run pdf-translator process document.pdf --local --model-path model.gguf --n-ctx 1024
+poetry run dilmaj process document.pdf --local --model-path model.gguf --n-ctx 1024
 
 # Try a smaller quantized model
 # Q2_K < Q4_K_M < Q8_0 (size and quality)
@@ -375,14 +375,14 @@ poetry run pytest
 Format code:
 
 ```bash
-poetry run black pdf_translator/
-poetry run isort pdf_translator/
+poetry run black dilmaj/
+poetry run isort dilmaj/
 ```
 
 Type checking:
 
 ```bash
-poetry run mypy pdf_translator/
+poetry run mypy dilmaj/
 ```
 
 ## License

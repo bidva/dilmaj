@@ -1,6 +1,6 @@
 """Tests for exceptions module."""
 
-from pdf_translator.exceptions import (
+from dilmaj.exceptions import (
     ConfigurationError,
     GPTProcessingError,
     PDFProcessingError,

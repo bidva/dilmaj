@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from pdf_translator.exceptions import ConfigurationError
-from pdf_translator.utils import validate_api_key
+from dilmaj.exceptions import ConfigurationError
+from dilmaj.utils import validate_api_key
 
 
 class TestUtils:
