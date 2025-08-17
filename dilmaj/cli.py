@@ -97,8 +97,6 @@ def process_core(
 
     console.print(f"[green]Concurrent requests:[/green] {concurrent}")
 
-    # Page range removed; processing entire document into paragraphs
-
     if dry_run:
         console.print("[yellow]Mode:[/yellow] Dry run (no LLM calls)")
 
@@ -396,7 +394,6 @@ def process(
     default="./output",
     help="Output directory where extracted chunks will be saved",
 )
-# page range options removed for paragraph-only extraction
 @click.option(
     "--verbose",
     "-v",
@@ -546,9 +543,6 @@ def extract(
         if verbose:
             console.print_exception()
         sys.exit(1)
-
-
-## Local models command removed
 
 
 def main() -> None:

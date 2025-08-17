@@ -18,7 +18,7 @@ def validate_api_key(model_type: str = "openai") -> str:
     """Validate OpenAI API key from environment variables.
 
     Args:
-        model_type: Type of model ("openai" or "local")
+        model_type: Type of model ("openai" by default)
 
     Returns:
         The valid API key string
