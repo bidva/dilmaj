@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from ..config import Config
 from .base import LLMProvider, ProviderConfig
 from .openai_provider import OpenAIProvider
-
-ProviderKind = Literal["openai"]
 
 
 class ProviderFactory:

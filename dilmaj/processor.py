@@ -254,7 +254,6 @@ class PDFProcessor:
         self,
         pages: List[str],
         output_dir: Path,
-        pdf_path: Optional[Path] = None,
         progress_callback: Optional[Callable[[int], None]] = None,
     ) -> List[Dict[str, Any]]:
         """Synchronous wrapper for async paragraph processing.
@@ -262,7 +261,6 @@ class PDFProcessor:
         Args:
             pages: List of paragraph contents
             output_dir: Directory to save results
-            pdf_path: Optional path to PDF file for metadata
             progress_callback: Optional callback for progress updates
 
         Returns:

@@ -59,7 +59,7 @@ def process_core(
     # Validate API key (only if not dry run)
     if not dry_run:
         try:
-            validate_api_key("openai")
+            validate_api_key()
         except ConfigurationError as e:
             console.print(f"[red]Error: {str(e)}[/red]")
             sys.exit(1)
@@ -222,7 +222,6 @@ def process_core(
             results = processor.process_pages_async(
                 pages,
                 output_dir_obj,
-                None if extracted_dir_obj is not None else file_path_obj,
                 progress_callback=lambda completed: progress.update(
                     process_task, completed=completed
                 ),
