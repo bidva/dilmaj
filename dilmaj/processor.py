@@ -3,7 +3,7 @@
 Now processes extracted text in paragraph units (not per page) and supports
 multiple document types (PDF, DOCX/DOC) via pluggable extractors.
 Backends for text generation are abstracted behind a provider interface,
-enabling OpenAI, local llama-cpp, and future providers (e.g., Bedrock).
+currently implemented for OpenAI (future providers can be added later).
 """
 
 import asyncio
@@ -64,7 +64,7 @@ class PDFProcessor:
 
     def _init_provider(self) -> None:
         """Initialize the LLM provider based on configuration."""
-        # ProviderFactory validates local model path existence internally
+        # Initialize provider based on configuration
         self.provider = ProviderFactory.from_config(self.config)
 
     def _setup_logging(self) -> None:
@@ -168,10 +168,7 @@ class PDFProcessor:
                 "processed_content": response_content,
                 "timestamp": time.time(),
                 "model": self.config.model,
-                "model_type": self.config.model_type,
-                "model_path": self.config.model_path
-                if self.config.is_local_model
-                else None,
+                "model_type": "openai",
                 "prompt": self.config.prompt,
             }
 

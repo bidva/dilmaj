@@ -18,10 +18,6 @@ class ProviderConfig:
     model: str
     temperature: float = 0.1
     max_tokens: Optional[int] = None
-    # Local model specifics
-    model_path: Optional[str] = None
-    n_gpu_layers: int = 0
-    n_ctx: int = 2048
     # Extra fields for future providers (e.g., Bedrock):
     # region: Optional[str] = None
     # profile: Optional[str] = None
@@ -46,8 +42,7 @@ class LLMProvider(abc.ABC):
         """
 
     def invoke(self, prompt: str) -> str:
-        """Optional sync helper for providers that are only sync
-        (e.g., llama-cpp)."""
+        """Optional sync helper for synchronous providers."""
         raise NotImplementedError
 
     def close(self) -> None:

@@ -18,7 +18,7 @@ from rich.progress import (
 from .config import Config
 from .exceptions import ConfigurationError
 from .processor import PDFProcessor
-from .utils import detect_local_models, get_suggested_local_models, validate_api_key
+from .utils import validate_api_key
 
 # Load environment variables
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
@@ -34,13 +34,9 @@ def cli() -> None:
 
 
 def process_core(
-    pdf_path: str,
+    file_path: str,
     output_dir: str,
     model: str,
-    model_path: Optional[str],
-    local: bool,
-    n_gpu_layers: int,
-    n_ctx: int,
     prompt_template: str,
     prompt: str,
     max_retries: int,
@@ -49,7 +45,6 @@ def process_core(
     temperature: float,
     max_tokens: Optional[int],
     verbose: bool,
-    # page options removed
     dry_run: bool,
     no_preprocess: bool,
     keep_headers_footers: bool,
@@ -59,29 +54,13 @@ def process_core(
     """Core processing logic used by provider-specific commands."""
 
     # Convert string paths to Path objects
-    pdf_path_obj = Path(pdf_path)
+    file_path_obj = Path(file_path)
     output_dir_obj = Path(output_dir)
-    model_path_obj = Path(model_path) if model_path else None
     extracted_dir_obj = Path(from_extracted_dir) if from_extracted_dir else None
-
-    # Determine model type
-    model_type = "local" if local else "openai"
-
-    # Validate local model setup
-    if local and not model_path:
-        console.print(
-            ("[red]Error: --model-path is required when using " "--local flag[/red]")
-        )
-        console.print(
-            "[yellow]💡 Tip: Download a .gguf model from Hugging Face and "
-            "specify its path[/yellow]"
-        )
-        sys.exit(1)
-
-    # Validate API key (only if not dry run and not local)
-    if not dry_run and not local:
+    # Validate API key (only if not dry run)
+    if not dry_run:
         try:
-            validate_api_key(model_type)
+            validate_api_key("openai")
         except ConfigurationError as e:
             console.print(f"[red]Error: {str(e)}[/red]")
             sys.exit(1)
@@ -95,11 +74,7 @@ def process_core(
         concurrent_requests=concurrent,
         verbose=verbose,
         temperature=temperature,
-        max_tokens=max_tokens or (512 if local else None),
-        model_path=str(model_path_obj) if model_path_obj else None,
-        model_type=model_type,
-        n_gpu_layers=n_gpu_layers,
-        n_ctx=n_ctx,
+        max_tokens=max_tokens,
         prompt_template=prompt_template,
         preprocess_text=not no_preprocess,
         remove_headers_footers=not keep_headers_footers,
@@ -112,20 +87,13 @@ def process_core(
     default_extracted_dir = output_dir_obj / "extracted"
 
     # Display basic info
-    console.print(f"[green]PDF file:[/green] {pdf_path_obj}")
+    console.print(f"[green]PDF file:[/green] {file_path_obj}")
     if not dry_run:
         console.print(f"[green]Output directory:[/green] {output_dir_obj}")
 
-    if local:
-        console.print("[green]Model type:[/green] Local (llama-cpp)")
-        console.print(f"[green]Model path:[/green] {model_path_obj}")
-        console.print(f"[green]GPU layers:[/green] {n_gpu_layers}")
-        console.print(f"[green]Context size:[/green] {n_ctx}")
-        console.print("[green]💰 Cost:[/green] $0.00 (Local model - FREE!)")
-    else:
-        console.print("[green]Model type:[/green] OpenAI API")
-        console.print(f"[green]Model:[/green] {model}")
-        console.print(f"[green]Rate limit:[/green] {rate_limit} requests/minute")
+    console.print("[green]Model type:[/green] OpenAI API")
+    console.print(f"[green]Model:[/green] {model}")
+    console.print(f"[green]Rate limit:[/green] {rate_limit} requests/minute")
 
     console.print(f"[green]Concurrent requests:[/green] {concurrent}")
 
@@ -175,7 +143,7 @@ def process_core(
                     "[blue]Extracting and saving paragraphs to "
                     f"{extracted_dir_obj}...[/blue]"
                 )
-                extracted_paragraphs = processor.extract_paragraphs(pdf_path_obj)
+                extracted_paragraphs = processor.extract_paragraphs(file_path_obj)
 
                 # Write paragraph files
                 written = 0
@@ -258,7 +226,7 @@ def process_core(
             results = processor.process_pages_async(
                 pages,
                 output_dir_obj,
-                None if extracted_dir_obj is not None else pdf_path_obj,
+                None if extracted_dir_obj is not None else file_path_obj,
                 progress_callback=lambda completed: progress.update(
                     process_task, completed=completed
                 ),
@@ -280,7 +248,7 @@ def process_core(
 
 
 @cli.command()
-@click.argument("pdf_path", type=click.Path(exists=True))
+@click.argument("file_path", type=click.Path(exists=True))
 @click.option(
     "--output-dir",
     "-o",
@@ -381,7 +349,7 @@ def process_core(
     ),
 )
 def process(
-    pdf_path: str,
+    file_path: str,
     output_dir: str,
     model: str,
     prompt_template: str,
@@ -398,178 +366,15 @@ def process(
     no_paragraph_chunking: bool,
     from_extracted_dir: Optional[str],
 ) -> None:
-    """Process a PDF file by extracting paragraphs and processing them with OpenAI.
-
-    This is the default (OpenAI) processor. For local models, use 'process-local'.
-    """
+    """Process a PDF file by extracting paragraphs and processing them with OpenAI."""
     process_core(
-        pdf_path=pdf_path,
+        file_path=file_path,
         output_dir=output_dir,
         model=model,
-        model_path=None,
-        local=False,
-        n_gpu_layers=0,
-        n_ctx=2048,
         prompt_template=prompt_template,
         prompt=prompt,
         max_retries=max_retries,
         rate_limit=rate_limit,
-        concurrent=concurrent,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        verbose=verbose,
-        dry_run=dry_run,
-        no_preprocess=no_preprocess,
-        keep_headers_footers=keep_headers_footers,
-        no_paragraph_chunking=no_paragraph_chunking,
-        from_extracted_dir=from_extracted_dir,
-    )
-
-
-@cli.command(name="process-local")
-@click.argument("pdf_path", type=click.Path(exists=True))
-@click.option(
-    "--output-dir",
-    "-o",
-    type=click.Path(),
-    default="./output",
-    help="Output directory for results",
-)
-@click.option(
-    "--model-path",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to local model file (.gguf format)",
-)
-@click.option(
-    "--model",
-    "-m",
-    default="local-llama",
-    help="Logical name to record for the local model (optional)",
-)
-@click.option(
-    "--n-gpu-layers",
-    type=int,
-    default=0,
-    help="Number of layers to offload to GPU",
-)
-@click.option(
-    "--n-ctx",
-    type=int,
-    default=2048,
-    help="Context size for the local model",
-)
-@click.option(
-    "--prompt-template",
-    type=click.Choice(["standard", "persian", "custom"], case_sensitive=False),
-    default="standard",
-    help="Prompt template to use",
-)
-@click.option(
-    "--prompt",
-    "-p",
-    default=(
-        "Please translate this text to English and provide a "
-        "clean, formatted version."
-    ),
-    help="Custom prompt for processing paragraphs",
-)
-@click.option(
-    "--max-retries",
-    "-r",
-    type=int,
-    default=3,
-    help="Maximum number of retry attempts",
-)
-@click.option(
-    "--concurrent",
-    "-c",
-    type=int,
-    default=3,
-    help="Number of concurrent paragraphs to process",
-)
-@click.option(
-    "--temperature",
-    "-t",
-    type=float,
-    default=0.1,
-    help=("Temperature for model generation (0.0 to 1.0, lower = more deterministic)"),
-)
-@click.option(
-    "--max-tokens",
-    type=int,
-    default=512,
-    show_default=True,
-    help="Maximum tokens to generate per paragraph",
-)
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Enable verbose output",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be processed without running the local model",
-)
-@click.option(
-    "--no-preprocess",
-    is_flag=True,
-    help="Disable text preprocessing (skip cleaning headers/footers, etc.)",
-)
-@click.option(
-    "--keep-headers-footers",
-    is_flag=True,
-    help="Keep headers and footers during preprocessing",
-)
-@click.option(
-    "--no-paragraph-chunking",
-    is_flag=True,
-    help="Disable paragraph chunking during preprocessing",
-)
-@click.option(
-    "--from-extracted-dir",
-    type=click.Path(exists=True, file_okay=False),
-    help=(
-        "Directory containing pre-extracted paragraph_*.txt files to process "
-        "(skips in-PDF extraction)"
-    ),
-)
-def process_local(
-    pdf_path: str,
-    output_dir: str,
-    model_path: str,
-    model: str,
-    n_gpu_layers: int,
-    n_ctx: int,
-    prompt_template: str,
-    prompt: str,
-    max_retries: int,
-    concurrent: int,
-    temperature: float,
-    max_tokens: int,
-    verbose: bool,
-    dry_run: bool,
-    no_preprocess: bool,
-    keep_headers_footers: bool,
-    no_paragraph_chunking: bool,
-    from_extracted_dir: Optional[str],
-) -> None:
-    """Process a PDF file using a local llama-cpp model."""
-    # Local flow does not use API rate limiting, set to a benign value
-    process_core(
-        pdf_path=pdf_path,
-        output_dir=output_dir,
-        model=model,
-        model_path=model_path,
-        local=True,
-        n_gpu_layers=n_gpu_layers,
-        n_ctx=n_ctx,
-        prompt_template=prompt_template,
-        prompt=prompt,
-        max_retries=max_retries,
-        rate_limit=60,
         concurrent=concurrent,
         temperature=temperature,
         max_tokens=max_tokens,
@@ -743,68 +548,7 @@ def extract(
         sys.exit(1)
 
 
-@cli.command()
-@click.option(
-    "--search-paths",
-    "-p",
-    multiple=True,
-    help="Additional paths to search for model files",
-)
-def models(search_paths: tuple[str, ...]) -> None:
-    """List available local models and suggestions for download."""
-
-    console.print("[green]🤖 Local Model Management[/green]\n")
-
-    # Show suggested models
-    console.print("[blue]📋 Suggested Models for Download:[/blue]")
-    suggested = get_suggested_local_models()
-    for model_name, description in suggested.items():
-        console.print(f"  • [cyan]{model_name}[/cyan]")
-        console.print(f"    {description}")
-
-    console.print(
-        ("\n[yellow]💡 Download models from Hugging Face in .gguf " "format[/yellow]")
-    )
-    console.print(
-        (
-            "[dim]Example: wget https://huggingface.co/TheBloke/"
-            "Llama-2-7B-Chat-GGUF/resolve/main/"
-            "llama-2-7b-chat.Q4_K_M.gguf[/dim]"
-        )
-    )
-
-    # Detect available models
-    console.print("\n[blue]🔍 Scanning for Local Models:[/blue]")
-    search_list = list(search_paths) if search_paths else None
-    found_models = detect_local_models(search_list)
-
-    if found_models:
-        console.print(f"[green]Found {len(found_models)} model(s):[/green]")
-        for model_path in found_models:
-            model_file = Path(model_path)
-            size_mb = model_file.stat().st_size / (1024 * 1024)
-            console.print(f"  • [cyan]{model_path}[/cyan] ({size_mb:.1f} MB)")
-
-        console.print("\n[blue]💡 To use a local model:[/blue]")
-        console.print(
-            "[dim]dilmaj process-local your_file.pdf "
-            "--model-path /path/to/model.gguf[/dim]"
-        )
-    else:
-        console.print("[yellow]No local models found.[/yellow]")
-        console.print(
-            "[yellow]Download a .gguf model and place it in one of "
-            "these locations:[/yellow]"
-        )
-        default_paths = [
-            "~/models",
-            "~/.cache/huggingface/transformers",
-            "~/.ollama/models",
-            "/usr/local/share/models",
-            "./models",
-        ]
-        for path in default_paths:
-            console.print(f"  • {path}")
+## Local models command removed
 
 
 def main() -> None:

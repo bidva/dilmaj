@@ -26,9 +26,7 @@ def validate_api_key(model_type: str = "openai") -> str:
     Raises:
         ConfigurationError: If API key is missing for OpenAI models
     """
-    if model_type == "local":
-        # Local models don't need API keys
-        return ""
+    # Only OpenAI supported; local models removed
 
     api_key = os.getenv("OPENAI_API_KEY")
 
@@ -460,60 +458,4 @@ def _chunk_into_paragraphs(text: str) -> str:
     return "\n\n".join(p for p in paragraphs if p.strip())
 
 
-def get_suggested_local_models() -> Dict[str, str]:
-    """Get a dictionary of suggested local models and their descriptions.
-
-    Returns:
-        Dictionary mapping model names to descriptions
-    """
-    return {
-        "llama-2-7b-chat.Q4_K_M.gguf": (
-            "LLaMA 2 7B Chat - Good balance of quality and speed"
-        ),
-        "llama-2-13b-chat.Q4_K_M.gguf": ("LLaMA 2 13B Chat - Higher quality, slower"),
-        "mistral-7b-instruct-v0.1.Q4_K_M.gguf": (
-            "Mistral 7B Instruct - Excellent for text processing"
-        ),
-        "codellama-7b-instruct.Q4_K_M.gguf": (
-            "Code Llama 7B - Optimized for code tasks"
-        ),
-        "vicuna-7b-v1.5.Q4_K_M.gguf": ("Vicuna 7B - Good general purpose model"),
-        "openchat-3.5-7b.Q4_K_M.gguf": ("OpenChat 3.5 7B - Fast and efficient"),
-    }
-
-
-def detect_local_models(search_paths: Optional[List[str]] = None) -> List[str]:
-    """Detect available local model files in common locations.
-
-    Args:
-        search_paths: Optional list of paths to search for models
-
-    Returns:
-        List of found model file paths
-    """
-    if search_paths is None:
-        # Common locations for local models
-        search_paths = [
-            "~/models",
-            "~/.cache/huggingface/transformers",
-            "~/.ollama/models",
-            "/usr/local/share/models",
-            "./models",
-        ]
-
-    found_models = []
-    model_extensions = [".gguf", ".ggml", ".bin"]
-
-    for path_str in search_paths:
-        try:
-            path = Path(path_str).expanduser().resolve()
-            if path.exists() and path.is_dir():
-                for ext in model_extensions:
-                    pattern = f"**/*{ext}"
-                    for model_file in path.glob(pattern):
-                        if model_file.is_file():
-                            found_models.append(str(model_file))
-        except Exception as e:
-            logger.debug(f"Error searching path {path_str}: {e}")
-
-    return found_models
+## Local model utilities removed
