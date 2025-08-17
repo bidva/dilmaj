@@ -154,8 +154,7 @@ class PDFProcessor:
             # Apply rate limiting
             await asyncio.sleep(self.config.rate_limit_delay)
 
-            # Use the config's prompt formatting method
-            input_text = self.config.format_prompt(page_content)
+            input_text = page_content
 
             # Delegate generation to the provider (uniform API)
             provider = self.provider

@@ -28,18 +28,6 @@ class Config:
         """Calculate delay between requests in seconds based on rate limit."""
         return 60.0 / self.rate_limit_rpm
 
-    def format_prompt(self, paragraph: str) -> str:
-        """Format the prompt with paragraph content using the specified template."""
-        if self.prompt_template == "persian":
-            # Enhanced format for Persian translation
-            return f"{self.prompt}\n\n{paragraph}\n\nترجمه فارسی:"
-        elif self.prompt_template == "standard":
-            # Standard format with a neutral label
-            return f"{self.prompt}\n\nText:\n{paragraph}"
-        else:  # custom or any other value
-            # Simple format: just prompt + content
-            return f"{self.prompt}\n\n{paragraph}"
-
     def to_dict(self) -> dict:
         """Convert config to dictionary."""
         return {
