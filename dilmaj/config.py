@@ -18,7 +18,6 @@ class Config:
     verbose: bool = False
     temperature: float = 0.1
     max_tokens: Optional[int] = None
-    prompt_template: str = "standard"  # "standard", "persian", or "custom"
     preprocess_text: bool = True  # Enable text preprocessing
     remove_headers_footers: bool = True  # Remove headers/footers during preprocessing
     chunk_paragraphs: bool = True  # Chunk text into paragraphs during preprocessing
@@ -39,7 +38,6 @@ class Config:
             "verbose": self.verbose,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "prompt_template": self.prompt_template,
             "preprocess_text": self.preprocess_text,
             "remove_headers_footers": self.remove_headers_footers,
             "chunk_paragraphs": self.chunk_paragraphs,

@@ -37,7 +37,6 @@ def process_core(
     file_path: str,
     output_dir: str,
     model: str,
-    prompt_template: str,
     prompt: str,
     max_retries: int,
     rate_limit: int,
@@ -75,7 +74,6 @@ def process_core(
         verbose=verbose,
         temperature=temperature,
         max_tokens=max_tokens,
-        prompt_template=prompt_template,
         preprocess_text=not no_preprocess,
         remove_headers_footers=not keep_headers_footers,
         chunk_paragraphs=not no_paragraph_chunking,
@@ -261,16 +259,6 @@ def process_core(
     help="OpenAI model to use for processing",
 )
 @click.option(
-    "--prompt-template",
-    type=click.Choice(["standard", "persian", "custom"], case_sensitive=False),
-    default="standard",
-    help=(
-        "Prompt template format: 'standard' (OpenAI-style), "
-        "'persian' (optimized for Persian translation), "
-        "'custom' (simple format)"
-    ),
-)
-@click.option(
     "--prompt",
     "-p",
     default=(
@@ -350,7 +338,6 @@ def process(
     file_path: str,
     output_dir: str,
     model: str,
-    prompt_template: str,
     prompt: str,
     max_retries: int,
     rate_limit: int,
@@ -369,7 +356,6 @@ def process(
         file_path=file_path,
         output_dir=output_dir,
         model=model,
-        prompt_template=prompt_template,
         prompt=prompt,
         max_retries=max_retries,
         rate_limit=rate_limit,
