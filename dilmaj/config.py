@@ -28,11 +28,6 @@ class Config:
         """Calculate delay between requests in seconds based on rate limit."""
         return 60.0 / self.rate_limit_rpm
 
-    @property
-    def is_local_model(self) -> bool:
-        """Local model support removed; always False."""
-        return False
-
     def format_prompt(self, paragraph: str) -> str:
         """Format the prompt with paragraph content using the specified template."""
         if self.prompt_template == "persian":
