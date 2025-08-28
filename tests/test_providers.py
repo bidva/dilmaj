@@ -10,7 +10,16 @@ from dilmaj.providers.factory import ProviderFactory
 from dilmaj.providers.openai_provider import OpenAIProvider
 
 
-def test_factory_creates_openai_provider():
+def test_factory_creates_openai_provider(monkeypatch):
+    # Mock ChatOpenAI to avoid requiring API key
+    class DummyLLM:
+        def __init__(self, *a, **k):
+            pass
+
+    import dilmaj.providers.openai_provider as mod
+
+    monkeypatch.setattr(mod, "ChatOpenAI", DummyLLM)
+
     p = ProviderFactory.from_config(Config())
     assert isinstance(p, OpenAIProvider)
 
