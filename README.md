@@ -1,8 +1,7 @@
 # Dilmaj - Document Processing CLI
 
 [![Tests](https://github.com/bidva/dilmaj/actions/workflows/test-and-coverage.yml/badge.svg)](https://github.com/bidva/dilmaj/actions/workflows/test-and-coverage.yml)
-[![Coverage](https://raw.githubusercontent.com/bidva/dilmaj/main/coverage-badge.svg)](https://codecov.io/gh/bidva/dilmaj)
-[![codecov](https://codecov.io/gh/bidva/dilmaj/branch/main/graph/badge.svg)](https://codecov.io/gh/bidva/dilmaj)
+[![Coverage](https://raw.githubusercontent.com/bidva/dilmaj/main/coverage-badge.svg)](https://raw.githubusercontent.com/bidva/dilmaj/main/coverage-badge.svg)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Poetry](https://img.shields.io/badge/dependency--manager-poetry-blue)](https://python-poetry.org/)
 
