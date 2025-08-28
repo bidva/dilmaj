@@ -193,9 +193,12 @@ poetry run pytest
 poetry run pytest --cov=dilmaj --cov-report=html --cov-report=term
 
 # Or use make targets
-make test
-make coverage
-make coverage-badge
+make test                    # Run tests only
+make coverage               # Run tests with coverage reports
+make coverage-badge         # Generate colored coverage badge
+make coverage-check         # Check if coverage meets 80% threshold
+make coverage-full          # Full coverage analysis + badge generation
+make coverage-clean         # Clean coverage files
 ```
 
 ### Code Quality
@@ -215,13 +218,41 @@ poetry run mypy dilmaj/
 
 ### Coverage
 
-The project maintains high test coverage. You can view the coverage report by running:
+The project maintains high test coverage with colored badges and threshold monitoring. You can view the coverage report by running:
 
 ```bash
-make coverage
+make coverage-full
 ```
 
-This will generate an HTML coverage report in the `htmlcov/` directory. Open `htmlcov/index.html` in your browser to view detailed coverage information.
+This will:
+
+- Run tests with comprehensive coverage analysis
+- Generate an HTML coverage report in the `htmlcov/` directory
+- Create a colored coverage badge based on coverage thresholds
+- Display coverage status with visual indicators
+
+#### Coverage Thresholds
+
+The coverage badge uses color-coded thresholds:
+
+- 🟢 **Excellent** (≥90%): Bright green badge
+- 🟡 **Good** (≥75%): Green badge
+- 🟠 **Fair** (≥65%): Yellow badge
+- 🔴 **Poor** (<65%): Red badge
+
+The build will fail if coverage drops below 75%.
+
+#### Coverage Commands
+
+```bash
+make coverage          # Generate coverage reports (HTML, JSON, XML)
+make coverage-badge    # Generate colored coverage badge
+make coverage-check    # Verify coverage meets 75% threshold
+make coverage-clean    # Remove all coverage files
+make coverage-full     # Complete coverage workflow
+```
+
+Open `htmlcov/index.html` in your browser to view detailed coverage information with line-by-line analysis.
 
 The coverage badge in this README is automatically updated by GitHub Actions on each commit to the main branch.
 

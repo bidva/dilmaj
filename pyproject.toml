@@ -65,6 +65,8 @@ omit = [
     "*/venv/*",
     "*/.venv/*"
 ]
+branch = true
+parallel = true
 
 [tool.coverage.report]
 exclude_lines = [
@@ -79,6 +81,25 @@ exclude_lines = [
 ]
 show_missing = true
 precision = 2
+# Coverage thresholds
+fail_under = 75
+# Color thresholds for reports
+skip_covered = false
+sort = "Cover"
 
 [tool.coverage.html]
 directory = "htmlcov"
+show_contexts = true
+skip_covered = false
+title = "Dilmaj Coverage Report"
+
+[tool.coverage.json]
+show_contexts = true
+pretty_print = true
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# Additional coverage configuration for better reporting
+[tool.coverage.paths]
+source = ["dilmaj/", "*/site-packages/dilmaj/"]

@@ -24,7 +24,10 @@ pre-commit-help:
 	@echo "Testing and Coverage targets:"
 	@echo "  make test                     # Run tests"
 	@echo "  make coverage                 # Run tests with coverage report"
-	@echo "  make coverage-badge           # Generate coverage badge"
+	@echo "  make coverage-badge           # Generate colored coverage badge"
+	@echo "  make coverage-check           # Check if coverage meets threshold (75%)"
+	@echo "  make coverage-clean           # Clean coverage files"
+	@echo "  make coverage-full            # Full coverage analysis + badge"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make pre-commit-black"
@@ -68,8 +71,19 @@ test:
 	$(POETRY) run pytest tests/ -v
 
 coverage:
-	$(POETRY) run pytest tests/ --cov=dilmaj --cov-report=html --cov-report=term --cov-report=json
+	$(POETRY) run pytest tests/ --cov=dilmaj --cov-report=html --cov-report=term --cov-report=json --cov-report=xml
 
 coverage-badge: coverage
-	$(POETRY) run coverage-badge -o coverage-badge.svg
-	@echo "Coverage badge generated: coverage-badge.svg"
+	python simple_badge.py
+
+coverage-check:
+	$(POETRY) run coverage report --fail-under=75
+
+coverage-clean:
+	rm -rf htmlcov/
+	rm -f coverage.json coverage.xml .coverage coverage-badge*.svg
+
+coverage-full: coverage-clean coverage coverage-badge
+	@echo "📊 Full coverage analysis complete!"
+	@echo "📁 HTML report: htmlcov/index.html"
+	@echo "🏷️  Badge: coverage-badge.svg"

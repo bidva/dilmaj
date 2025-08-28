@@ -1,0 +1,32 @@
+# Coverage Configuration
+# This file contains configuration for coverage thresholds and badge generation
+
+[coverage]
+# Minimum coverage threshold - build will fail if below this
+fail_under = 80
+
+[thresholds]
+# Coverage quality thresholds for badge colors
+excellent = 90.0  # Green badge
+good = 80.0       # Light green badge
+fair = 70.0       # Yellow badge
+# Below 70% = Red badge
+
+[badge]
+# Badge styling options
+style = "flat"    # Options: flat, flat-square, plastic, for-the-badge, social
+logo = "pytest"
+logo_color = "white"
+
+# Custom colors (optional)
+# excellent_color = "brightgreen"
+# good_color = "green"
+# fair_color = "yellow"
+# poor_color = "red"
+
+[reporting]
+# Coverage reporting options
+show_missing = true
+precision = 2
+skip_covered = false
+show_contexts = true
