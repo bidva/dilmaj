@@ -36,6 +36,7 @@ mypy = "^1.5.0"
 pre-commit = "^3.4.0"
 pytest-mock = "^3.11.0"
 pytest-asyncio = "^0.21.0"
+coverage-badge = "^1.1.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -54,3 +55,30 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.coverage.run]
+source = ["dilmaj"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:"
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"

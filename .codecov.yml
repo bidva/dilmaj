@@ -1,0 +1,23 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+        threshold: 2%
+
+comment:
+  layout: "header,diff,flags,components,tree"
+  behavior: default
+  require_changes: false
+
+ignore:
+  - "tests/"
+  - "htmlcov/"
+  - "**/__pycache__/"
+  - "setup.py"
+  - "venv/"
+  - ".venv/"

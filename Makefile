@@ -9,7 +9,7 @@ CONFIG := .pre-commit-config.yaml
 .PHONY: help pre-commit-help list-hooks pre-commit-install pre-commit-update pre-commit-all \
 	pre-commit-trailing-whitespace pre-commit-end-of-file-fixer pre-commit-check-yaml \
 	pre-commit-check-added-large-files pre-commit-check-merge-conflict pre-commit-debug-statements \
-	pre-commit-black pre-commit-isort pre-commit-mypy
+	pre-commit-black pre-commit-isort pre-commit-mypy test coverage coverage-badge
 
 help: pre-commit-help
 
@@ -20,6 +20,11 @@ pre-commit-help:
 	@echo "  make pre-commit-all           # Run all hooks on all files"
 	@echo "  make list-hooks               # Show hook IDs from $(CONFIG)"
 	@echo "  make pre-commit-<hook-id>     # Run a single hook on all files"
+	@echo ""
+	@echo "Testing and Coverage targets:"
+	@echo "  make test                     # Run tests"
+	@echo "  make coverage                 # Run tests with coverage report"
+	@echo "  make coverage-badge           # Generate coverage badge"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make pre-commit-black"
@@ -57,3 +62,14 @@ pre-commit-debug-statements: ; $(PRE_COMMIT) run debug-statements --all-files --
 pre-commit-black: ; $(PRE_COMMIT) run black --all-files --show-diff-on-failure
 pre-commit-isort: ; $(PRE_COMMIT) run isort --all-files --show-diff-on-failure
 pre-commit-mypy: ; $(PRE_COMMIT) run mypy --all-files --show-diff-on-failure
+
+# Testing and Coverage targets
+test:
+	$(POETRY) run pytest tests/ -v
+
+coverage:
+	$(POETRY) run pytest tests/ --cov=dilmaj --cov-report=html --cov-report=term --cov-report=json
+
+coverage-badge: coverage
+	$(POETRY) run coverage-badge -o coverage-badge.svg
+	@echo "Coverage badge generated: coverage-badge.svg"

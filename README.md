@@ -1,5 +1,11 @@
 # PDF Translator CLI
 
+[![Tests](https://github.com/bidva/dilmaj/actions/workflows/test-and-coverage.yml/badge.svg)](https://github.com/bidva/dilmaj/actions/workflows/test-and-coverage.yml)
+[![Coverage](https://raw.githubusercontent.com/bidva/dilmaj/main/coverage-badge.svg)](https://github.com/bidva/dilmaj/actions/workflows/coverage-badge.yml)
+[![codecov](https://codecov.io/gh/bidva/dilmaj/branch/main/graph/badge.svg)](https://codecov.io/gh/bidva/dilmaj)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Poetry](https://img.shields.io/badge/dependency--manager-poetry-blue)](https://python-poetry.org/)
+
 A CLI tool that extracts paragraphs from documents and processes them with OpenAI GPT models. It includes robust error handling, retries, and clear outputs.
 
 ## Features
@@ -178,11 +184,22 @@ If you get `zsh: command not found: poetry`:
 
 ## Development
 
-Run tests:
+### Running Tests
 
 ```bash
+# Run tests
 poetry run pytest
+
+# Run tests with coverage
+poetry run pytest --cov=dilmaj --cov-report=html --cov-report=term
+
+# Or use make targets
+make test
+make coverage
+make coverage-badge
 ```
+
+### Code Quality
 
 Format code:
 
@@ -196,6 +213,37 @@ Type checking:
 ```bash
 poetry run mypy dilmaj/
 ```
+
+### Coverage
+
+The project maintains high test coverage. You can view the coverage report by running:
+
+```bash
+make coverage
+```
+
+This will generate an HTML coverage report in the `htmlcov/` directory. Open `htmlcov/index.html` in your browser to view detailed coverage information.
+
+The coverage badge in this README is automatically updated by GitHub Actions on each commit to the main branch.
+
+### Continuous Integration
+
+This project uses GitHub Actions for continuous integration:
+
+- **Tests**: Run automatically on Python 3.9, 3.10, 3.11, and 3.12 for all pull requests and pushes to main/develop branches
+- **Coverage**: Coverage reports are uploaded to Codecov
+- **Coverage Badge**: Automatically updated on each commit to main branch
+- **Code Quality**: Pre-commit hooks ensure code formatting and quality
+
+### Local Development Workflow
+
+1. Make your changes
+2. Run tests locally: `make test`
+3. Check coverage: `make coverage`
+4. Update coverage badge: `make coverage-badge`
+5. Commit and push your changes
+
+The GitHub Actions will automatically run tests and update the coverage badge when you push to the main branch.
 
 ## License
 
